@@ -6,21 +6,13 @@
 #define YASH_COMMAND_PARSER_H
 
 #include <stdint.h>
-
+#include <stdlib.h>
 
 
 /**
  * Constants.
  */
-// static const uint32_t   MAX_BUFFER_SIZE         = 256;
-#define     MAX_BUFFER_SIZE             256
-char        BUFFER[MAX_BUFFER_SIZE];
 
-
-typedef struct Command {
-    char* cmd;
-    char* args[];
-} Command;
 
 
 /**

@@ -7,9 +7,13 @@
 
 #include "command.h"
 
-typedef struct Line {
-    Command* commands;
+static const uint32_t   MAX_BUFFER_SIZE         = 256;
 
-} Line;
+// char        BUFFER[MAX_BUFFER_SIZE];
+
+
+
+void line_read(char buf[], uint32_t max_buf_size);
+void line_exec(int* pg_status);
 
 #endif //YASH_LINE_H
