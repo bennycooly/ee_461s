@@ -1,41 +1,43 @@
-
+/**
+ * System headers.
+ */
 #include <stdlib.h>
 #include <stdio.h>
-// #include <stdint.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
+#include <signal.h>
 
-#define MAX_BUFFER_SIZE 256
+/**
+ * Our headers.
+ */
+#include "command.h"
 
-void read_line(char*);
+void sig_handler(int signo);
 
 int main() {
-    char buffer[MAX_BUFFER_SIZE];
+    if (signal(SIGINT, sig_handler) == SIG_ERR) {
+        printf("couldn't catch SIGINT\n");
+    }
     while(1) {
         printf("# ");           // print leading prompt
-        read_line(buffer);
+        cmd_read_line();
         pid_t pid = fork();
         if (pid < 0) {
             perror("Failed to fork");
         } else if (pid == 0) {
-            char *myargs[4];
-            myargs[0] = "ls";
-            myargs[1] = "-all";
-            myargs[2] = "/home";
-            myargs[3] = NULL;
-            execvp(myargs[0], myargs);
-            perror("Failed to exec");
+            cmd_execute();
         } else {
             wait(NULL);
         }
     }
 }
 
-void read_line(char* buf) {
-    if (fgets(buf, MAX_BUFFER_SIZE, stdin) == NULL) {
-        perror("Error reading line");
+void sig_handler(int signo) {
+    if (signo == SIGINT) {
+        printf("recieved SIGINT\n");
+        exit(1);
     }
-    size_t len = strlen(buf);
-    buf[len - 1] = '\0';
 }
+
