@@ -104,7 +104,7 @@ void sig_handler(int sig) {
         int wstatus;
         pid_t cpid = waitpid(-1, &wstatus, 0);
         if (cpid < 0) {
-            perror("wait");
+            perror("sigchld");
         }
         else if (cpid == 0) {
             printf("no change in child state");

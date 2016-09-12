@@ -31,16 +31,15 @@ typedef struct process {
     char* redirect_in_filename;
     char* redirect_out_filename;
     char* redirect_err_filename;
-    char* cmd;
     char** args;
-    uint32_t arg_capacity;
     uint32_t arg_size;
+    uint32_t arg_capacity;
 } process;
 
-
+void process_init(process* proc);
 void process_print(process* proc);
 void process_exec(process* proc, pgroup* pg, bool is_first);
 
-void process_free(process* proc);
+void process_destroy(process* proc);
 
 #endif //YASH_PROCESS_H

@@ -22,8 +22,10 @@ typedef struct pgroup {
     uint32_t capacity;
 } pgroup;
 
+void pgroup_init(pgroup* pg);
+
 void pgroup_exec(pgroup* pg);
 
-void pgroup_free(pgroup* pg);
+void pgroup_destroy(pgroup* pg);
 
 #endif //YASH_PGROUP_H
