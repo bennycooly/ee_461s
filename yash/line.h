@@ -7,13 +7,14 @@
 
 #include "command.h"
 
-static const uint32_t   MAX_BUFFER_SIZE         = 256;
+static const uint32_t   MAX_BUFFER_SIZE    = 2000;
 
 // char        BUFFER[MAX_BUFFER_SIZE];
 
 
 
-void line_read(char buf[], uint32_t max_buf_size);
-void line_exec(int* pg_status);
+int line_read(char* buf, uint32_t max_buf_size);
+int line_parse(char* buf, session* ses);
+void line_exec(session* ses);
 
 #endif //YASH_LINE_H

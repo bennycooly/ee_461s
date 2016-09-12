@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "session.h"
+
 
 /**
  * Constants.
@@ -19,6 +21,6 @@
  * Functions.
  */
 void cmd_read_line();
-void cmd_execute();
+void cmd_exec();
 
 #endif //YASH_COMMAND_PARSER_H
