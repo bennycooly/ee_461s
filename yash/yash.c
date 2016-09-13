@@ -64,9 +64,7 @@ int main() {
             default:
                 break;
         }
-        if (show_prompt) {
-            printf("# ");           // print leading prompt
-        }
+        printf("# ");           // print leading prompt
         if (line_read(buffer, MAX_BUFFER_SIZE) == -1) {     // read the next line from user
             show_prompt = false;
             continue;

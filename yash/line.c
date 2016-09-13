@@ -15,6 +15,10 @@
 #include "session.h"
 
 
+
+int dist_next_char(char* buf);
+
+
 /**
  * Read a line from stdin into a buffer.
  */
@@ -43,23 +47,33 @@ int line_read(char* buf, uint32_t max_buf_size) {
  * @return -1 if line is empty or the command failed.
  */
 int line_parse(char* buf, session* ses) {
+
     char* buf_ptr = buf;
+
     // check for empty line and skip leading whitespace
-    while(*buf_ptr == ' ') {
-        ++buf_ptr;
+    int to_next = dist_next_char(buf);
+    if (to_next == -1) {
+        return -1;
     }
-    if (*buf_ptr == '\0') { return -1; }                    // if buffer is 0 at this point then just return
 
     // first create a new process group
     pgroup* new_pgroup = malloc(sizeof(pgroup));
     pgroup_init(new_pgroup);
     new_pgroup->name = strdup(buf);
 
-    // At this point, we are assured that buf_ptr points to the beginning of a command.
+    //
+    // This while loop handles creating new processes.
+    //
     while(1) {   // process until EOF
-        if (*buf_ptr == '\0') { // our parse function will set buf_ptr to the sentinel if we are done
-            break;
+        to_next = dist_next_char(buf_ptr);
+        if (to_next == -1) {    // we're done processing
+            ses->pgroups[0] = new_pgroup;
+            return 0;
         }
+
+        buf_ptr += to_next;
+
+        // at this point, we are assured that buf_ptr points to the beginning of a command
 
         // create a new process
         process* new_process = malloc(sizeof(process));         // allocate for a new process
@@ -71,67 +85,20 @@ int line_parse(char* buf, session* ses) {
         char* arg_end_ptr = arg_begin_ptr;
         uint32_t arg_length = 0;
 
-        // at this point, we are guaranteed that arg_end_ptr points to a current argument (we are counting the command
-        // itself as an argument)
+        //
+        // This while loop handles creating new arguments for the process.
+        //
         while (1) {
-            char cur_char = *arg_end_ptr;
-            if (cur_char == '\0') {
-                if (arg_begin_ptr != arg_end_ptr) {             // we still need to process the last argument
-                    char* new_arg = malloc(sizeof(char) * (arg_length + 1));        // we add 1 for the string sentinel
-                    for (uint32_t i = 0; i < arg_length; ++i) {
-                        new_arg[i] = arg_begin_ptr[i];
-                    }
-                    new_arg[arg_length] = '\0';
-                    // check if we need to reallocate
-                    if (new_process->arg_size == new_process->arg_capacity - 1) {   // double the capacity and reallocate
-                        new_process->arg_capacity *= 2;
-                        char** temp = realloc(new_process->args, sizeof(char*) * new_process->arg_capacity);
-                        if (!temp) {
-                            printf("Memory allocation failure.\n");
-                            exit(1);
-                        }
-                        new_process->args = temp;
-                    }
-                    // first insert, then increment size
-                    new_process->args[new_process->arg_size] = new_arg;
-                    new_process->args[new_process->arg_size + 1] = NULL;    // for execvp
-                    ++(new_process->arg_size);
-                }
-                buf_ptr = arg_end_ptr;                                  // set buf to exit from main loop
-                break;
+            to_next = dist_next_char(arg_end_ptr);
+            if (to_next == -1) {       // we're done processing
+                return -1;
             }
-            if (cur_char == ' ') {                                      // add current arg to process
-                char* new_arg = malloc(sizeof(char) * (arg_length + 1));    // we add 1 for the string sentinel
-                for (uint32_t i = 0; i < arg_length; ++i) {
-                    new_arg[i] = arg_begin_ptr[i];
-                }
-                new_arg[arg_length] = '\0';
+            arg_end_ptr += to_next;
+            arg_begin_ptr = arg_end_ptr;
+            char cur_char = *arg_begin_ptr;
+            // at this point, we are guaranteed that arg_end_ptr points to a current argument
+            // (we are counting the command itself as an argument)
 
-                while (*arg_end_ptr == ' ') {                               // skip spaces
-                    ++arg_end_ptr;
-                }
-                if (*arg_end_ptr == '\0') {                                 // we're done with input
-                    buf_ptr = arg_end_ptr;
-                    break;
-                }
-                arg_begin_ptr = arg_end_ptr;
-                arg_length = 0;
-                // check if we need to reallocate
-                if (new_process->arg_size == new_process->arg_capacity - 1) {   // double the capacity and reallocate
-                    new_process->arg_capacity *= 2;
-                    char** temp = realloc(new_process->args, sizeof(char*) * new_process->arg_capacity);
-                    if (!temp) {
-                        printf("Memory allocation failure.\n");
-                        exit(1);
-                    }
-                    new_process->args = temp;
-                }
-                // first insert, then increment size
-                new_process->args[new_process->arg_size] = new_arg;
-                new_process->args[new_process->arg_size + 1] = NULL;        // for execvp
-                ++(new_process->arg_size);
-                continue;
-            }
             // check for special tokens - this indicates we are done with the current command
             if (cur_char == '>' || cur_char == '<' || cur_char == '2' || cur_char == '|' || cur_char == '&') {
 
@@ -142,6 +109,10 @@ int line_parse(char* buf, session* ses) {
                     pgroup_destroy(new_pgroup);
                     return -1;
                 }
+
+                // REDIRECTS
+                // For redirects, we don't take in any more args and instead set the proper flags and filenames for
+                // the process.
 
                 if (cur_char == '<') {
                     if (arg_end_ptr[1] == ' ') {    // next argument MUST be the filename
@@ -232,16 +203,138 @@ int line_parse(char* buf, session* ses) {
                         return -1;
                     }
                 }
+
+                else if (cur_char == '2' && arg_end_ptr[1] == '>') {
+                    if (arg_end_ptr[2] == ' ') {    // next argument MUST be the filename
+                        new_process->redirect_err = true;
+                        char* file_ptr = arg_end_ptr + 3;
+                        while (*file_ptr == ' ') {  // skip any whitespace
+                            ++file_ptr;
+                        }
+                        if (*file_ptr == '\0') {
+                            printf("yash: must specify filename after 2>.\n");
+                            process_destroy(new_process);
+                            pgroup_destroy(new_pgroup);
+                            return -1;
+                        }
+                        uint32_t filename_len = 0;              // we need to know the length of the filename
+                        char* temp_ptr = file_ptr;
+                        while (*temp_ptr != ' ' && *temp_ptr != '\0') {
+                            ++filename_len;
+                            ++temp_ptr;
+                        }
+                        new_process->redirect_err_filename = malloc(sizeof(char) * (filename_len + 1));
+                        for (uint32_t i = 0; i < filename_len; ++i) {
+                            new_process->redirect_err_filename[i] = file_ptr[i];
+                        }
+                        new_process->redirect_err_filename[filename_len] = '\0';    // string sentinel
+                        // reset pointers to next argument or EOF
+                        arg_end_ptr = temp_ptr;     // set pointer to end of filename
+                        while (*arg_end_ptr == ' ') {
+                            ++arg_end_ptr;
+                        }
+                        if (*arg_end_ptr == '\0') { // we reached EOF
+                            buf_ptr = arg_end_ptr;
+                            break;
+                        }
+                        arg_begin_ptr = arg_end_ptr;
+                        arg_length = 0;
+                        continue;
+                    }
+                    else {
+                        printf("yash: invalid token after 2>.\n");
+                        process_destroy(new_process);
+                        pgroup_destroy(new_pgroup);
+                        return -1;
+                    }
+                }
+
+
+
+                    // PIPES
+                    // For pipes, we need to indicate that we are done parsing the previous command and we are now
+                    // parsing the next one.
+
+                else if (cur_char == '|') {
+                    if ()
+                }
+
+
+                    // BACKGROUND
+                    // For backgrounding, we just indicate that the process group should be executed in the background.
+                    // It is assumed that & is the last token in the line.
+
+                else if (cur_char == '&') {
+
+                }
             }
+
+            else {
+                if (arg_begin_ptr != arg_end_ptr) {             // we still need to process the last argument
+                    char* new_arg = malloc(sizeof(char) * (arg_length + 1));        // we add 1 for the string sentinel
+                    for (uint32_t i = 0; i < arg_length; ++i) {
+                        new_arg[i] = arg_begin_ptr[i];
+                    }
+                    new_arg[arg_length] = '\0';
+                    // check if we need to reallocate
+                    if (new_process->arg_size == new_process->arg_capacity - 1) {   // double the capacity and reallocate
+                        new_process->arg_capacity *= 2;
+                        char** temp = realloc(new_process->args, sizeof(char*) * new_process->arg_capacity);
+                        if (!temp) {
+                            printf("Memory allocation failure.\n");
+                            exit(1);
+                        }
+                        new_process->args = temp;
+                    }
+                    // first insert, then increment size
+                    new_process->args[new_process->arg_size] = new_arg;
+                    new_process->args[new_process->arg_size + 1] = NULL;    // for execvp
+                    ++(new_process->arg_size);
+                }
+                buf_ptr = arg_end_ptr;                                  // set buf to exit from main loop
+                break;
+            }
+
+            if (cur_char == ' ') {
+                // add current arg to process
+                char* new_arg = malloc(sizeof(char) * (arg_length + 1));    // we add 1 for the string sentinel
+                for (uint32_t i = 0; i < arg_length; ++i) {
+                    new_arg[i] = arg_begin_ptr[i];
+                }
+                new_arg[arg_length] = '\0';
+
+                while (*arg_end_ptr == ' ') {                               // skip spaces
+                    ++arg_end_ptr;
+                }
+                if (*arg_end_ptr == '\0') {                                 // we're done with input
+                    buf_ptr = arg_end_ptr;
+                    break;
+                }
+                arg_begin_ptr = arg_end_ptr;
+                arg_length = 0;
+                // check if we need to reallocate
+                if (new_process->arg_size == new_process->arg_capacity - 1) {   // double the capacity and reallocate
+                    new_process->arg_capacity *= 2;
+                    char** temp = realloc(new_process->args, sizeof(char*) * new_process->arg_capacity);
+                    if (!temp) {
+                        printf("Memory allocation failure.\n");
+                        exit(1);
+                    }
+                    new_process->args = temp;
+                }
+                // first insert, then increment size
+                new_process->args[new_process->arg_size] = new_arg;
+                new_process->args[new_process->arg_size + 1] = NULL;        // for execvp
+                ++(new_process->arg_size);
+                continue;
+            }
+
             ++arg_end_ptr;
             ++arg_length;
         }
         new_pgroup->processes[new_pgroup->size] = new_process;
         ++(new_pgroup->size);
     }
-    new_pgroup->state = 'R';
-    ses->pgroups[0] = new_pgroup;
-    return 0;
 }
 
 /**
@@ -251,4 +344,22 @@ int line_parse(char* buf, session* ses) {
 void line_exec(session* ses) {
     pgroup* active_pgroup = session_get_active_pgroup(ses);
     pgroup_exec(active_pgroup);
+}
+
+
+/**
+ * Skips spaces until the next important character/token.
+ * @param buf - pointer to the buffer
+ * @return the number of characters away from the next token, -1 if there are none
+ */
+int dist_next_char(char* buf) {
+    int count = 0;
+    while (*buf == ' ') {
+        ++buf;
+        ++count;
+    }
+    if (*buf == '\0') {
+        return -1;
+    }
+    return count;
 }

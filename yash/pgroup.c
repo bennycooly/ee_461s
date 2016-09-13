@@ -26,6 +26,9 @@ void pgroup_exec(pgroup* pg) {
 
 void pgroup_destroy(pgroup* pg) {
     if (pg->size > 0) {
+        for (uint32_t i = 0; i < pg->size; ++i) {
+            free(pg->processes[i]);
+        }
         free(pg->processes);
         pg->processes = NULL;
     }

@@ -91,6 +91,21 @@ void process_exec(process* proc, pgroup* pg, bool is_first) {
                 exit(1);
             }
         }
+        if (proc->redirect_err) {
+            int fd = open(proc->redirect_err_filename, O_RDWR | O_CREAT, S_IRWXU);
+            if (fd == -1) {
+                perror("open");
+                exit(1);
+            }
+            if (dup2(fd, STDERR_FILENO) == -1) {
+                perror("dup2");
+                exit(1);
+            }
+            if (close(fd) == -1) {
+                perror("close");
+                exit(1);
+            }
+        }
         execvp(proc->args[0], proc->args);
         perror("yash");
         exit(1);
@@ -120,6 +135,7 @@ void process_exec(process* proc, pgroup* pg, bool is_first) {
         proc->pid = cpid;
         proc->ppid = getpid();
         proc->pgid = getpgid(cpid);
+        proc->state = 'R';
         process_print(proc);
         int wstatus;
         waitpid(-1 * proc->pgid, &wstatus, 0);
