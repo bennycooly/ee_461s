@@ -2,6 +2,8 @@
 // Created by bennycooly on 9/11/16.
 //
 
+#include <stdio.h>
+
 #include "pgroup.h"
 #include "process.h"
 
@@ -13,6 +15,7 @@ void pgroup_init(pgroup* pg) {
     pg->capacity = MIN_PGROUP_CAPACITY;
     pg->processes = malloc(sizeof(process*) * pg->capacity);
 }
+
 void pgroup_exec(pgroup* pg) {
     for (uint32_t i = 0; i < pg->size; ++i) {
         if (i == 0) {
@@ -22,6 +25,21 @@ void pgroup_exec(pgroup* pg) {
             process_exec(pg->processes[i], pg, false);
         }
     }
+}
+
+void pgroup_insert(pgroup* pg, process* proc) {
+    // check if we need to reallocate
+    if (pg->size == pg->capacity) {   // double the capacity and reallocate
+        pg->capacity *= 2;
+        process** temp = realloc(pg->processes, sizeof(process*) * pg->capacity);
+        if (!temp) {
+            printf("Memory allocation failure.\n");
+            exit(1);
+        }
+        pg->processes = temp;
+    }
+    pg->processes[pg->size] = proc;
+    ++(pg->size);
 }
 
 void pgroup_destroy(pgroup* pg) {

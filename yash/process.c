@@ -142,6 +142,24 @@ void process_exec(process* proc, pgroup* pg, bool is_first) {
     }
 }
 
+
+void process_insert_arg(process* proc, char* arg) {
+    // check if we need to reallocate
+    if (proc->arg_size == proc->arg_capacity - 1) {   // double the capacity; we subtract one because we need one extra arg for exec
+        proc->arg_capacity *= 2;
+        char** temp = realloc(proc->args, sizeof(char*) * proc->arg_capacity);
+        if (!temp) {
+            printf("Memory allocation failure.\n");
+            exit(1);
+        }
+        proc->args = temp;
+    }
+    // first insert, then increment size
+    proc->args[proc->arg_size] = arg;
+    proc->args[proc->arg_size + 1] = NULL;    // for execvp
+    ++(proc->arg_size);
+}
+
 void process_destroy(process* proc) {
     if (proc->arg_size > 0) {
         for (uint32_t i = 0; i < proc->arg_size; ++i) {

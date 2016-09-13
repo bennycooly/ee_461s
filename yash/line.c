@@ -61,6 +61,11 @@ int line_parse(char* buf, session* ses) {
     pgroup_init(new_pgroup);
     new_pgroup->name = strdup(buf);
 
+    // create a new process
+    // in the future, new processes will only be created from pipes
+    process* new_process = malloc(sizeof(process));         // allocate for a new process
+    process_init(new_process);
+
     //
     // This while loop handles creating new processes.
     //
@@ -75,15 +80,11 @@ int line_parse(char* buf, session* ses) {
 
         // at this point, we are assured that buf_ptr points to the beginning of a command
 
-        // create a new process
-        process* new_process = malloc(sizeof(process));         // allocate for a new process
-        process_init(new_process);
         char* cmd_ptr = buf_ptr;                                // start looking at where the buffer currently is
 
         // set pointers to where buf_ptr is right now
         char* arg_begin_ptr = buf_ptr;
         char* arg_end_ptr = arg_begin_ptr;
-        uint32_t arg_length = 0;
 
         //
         // This while loop handles creating new arguments for the process.
@@ -91,7 +92,9 @@ int line_parse(char* buf, session* ses) {
         while (1) {
             to_next = dist_next_char(arg_end_ptr);
             if (to_next == -1) {       // we're done processing
-                return -1;
+                pgroup_insert(new_pgroup, new_process);
+                buf_ptr = arg_end_ptr;
+                break;
             }
             arg_end_ptr += to_next;
             arg_begin_ptr = arg_end_ptr;
@@ -117,39 +120,28 @@ int line_parse(char* buf, session* ses) {
                 if (cur_char == '<') {
                     if (arg_end_ptr[1] == ' ') {    // next argument MUST be the filename
                         new_process->redirect_in = true;
-                        char* file_ptr = arg_end_ptr + 2;
-                        while (*file_ptr == ' ') {  // skip any whitespace
-                            ++file_ptr;
-                        }
-                        if (*file_ptr == '\0') {
+                        ++arg_end_ptr;                      // now points to the space after token
+                        to_next = dist_next_char(arg_end_ptr);
+                        if (to_next == -1) {
                             printf("yash: must specify filename after <.\n");
                             process_destroy(new_process);
                             pgroup_destroy(new_pgroup);
                             return -1;
                         }
+                        char* file_begin_ptr = arg_end_ptr + to_next;
                         uint32_t filename_len = 0;              // we need to know the length of the filename
-                        char* temp_ptr = file_ptr;
-                        while (*temp_ptr != ' ' && *temp_ptr != '\0') {
+                        char* file_end_ptr = file_begin_ptr;
+                        while (*file_end_ptr != ' ' && *file_end_ptr != '\0') {
                             ++filename_len;
-                            ++temp_ptr;
+                            ++file_end_ptr;
                         }
                         new_process->redirect_in_filename = malloc(sizeof(char) * (filename_len + 1));
                         for (uint32_t i = 0; i < filename_len; ++i) {
-                            new_process->redirect_in_filename[i] = file_ptr[i];
+                            new_process->redirect_in_filename[i] = file_begin_ptr[i];
                         }
                         new_process->redirect_in_filename[filename_len] = '\0';    // string sentinel
                         // reset pointers to next argument or EOF
-                        arg_end_ptr = temp_ptr;     // set pointer to end of filename
-                        while (*arg_end_ptr == ' ') {
-                            ++arg_end_ptr;
-                        }
-                        if (*arg_end_ptr == '\0') { // we reached EOF
-                            buf_ptr = arg_end_ptr;
-                            break;
-                        }
-                        arg_begin_ptr = arg_end_ptr;
-                        arg_length = 0;
-                        continue;
+                        arg_end_ptr = file_end_ptr;     // set pointer to end of filename
                     }
                     else {
                         printf("yash: invalid token after <.\n");
@@ -162,39 +154,28 @@ int line_parse(char* buf, session* ses) {
                 else if (cur_char == '>') {
                     if (arg_end_ptr[1] == ' ') {    // next argument MUST be the filename
                         new_process->redirect_out = true;
-                        char* file_ptr = arg_end_ptr + 2;
-                        while (*file_ptr == ' ') {  // skip any whitespace
-                            ++file_ptr;
-                        }
-                        if (*file_ptr == '\0') {
+                        ++arg_end_ptr;                      // now points to the space after token
+                        to_next = dist_next_char(arg_end_ptr);
+                        if (to_next == -1) {
                             printf("yash: must specify filename after >.\n");
                             process_destroy(new_process);
                             pgroup_destroy(new_pgroup);
                             return -1;
                         }
+                        char* file_begin_ptr = arg_end_ptr + to_next;
                         uint32_t filename_len = 0;              // we need to know the length of the filename
-                        char* temp_ptr = file_ptr;
-                        while (*temp_ptr != ' ' && *temp_ptr != '\0') {
+                        char* file_end_ptr = file_begin_ptr;
+                        while (*file_end_ptr != ' ' && *file_end_ptr != '\0') {
                             ++filename_len;
-                            ++temp_ptr;
+                            ++file_end_ptr;
                         }
                         new_process->redirect_out_filename = malloc(sizeof(char) * (filename_len + 1));
                         for (uint32_t i = 0; i < filename_len; ++i) {
-                            new_process->redirect_out_filename[i] = file_ptr[i];
+                            new_process->redirect_out_filename[i] = file_begin_ptr[i];
                         }
                         new_process->redirect_out_filename[filename_len] = '\0';    // string sentinel
                         // reset pointers to next argument or EOF
-                        arg_end_ptr = temp_ptr;     // set pointer to end of filename
-                        while (*arg_end_ptr == ' ') {
-                            ++arg_end_ptr;
-                        }
-                        if (*arg_end_ptr == '\0') { // we reached EOF
-                            buf_ptr = arg_end_ptr;
-                            break;
-                        }
-                        arg_begin_ptr = arg_end_ptr;
-                        arg_length = 0;
-                        continue;
+                        arg_end_ptr = file_end_ptr;     // set pointer to end of filename
                     }
                     else {
                         printf("yash: invalid token after >.\n");
@@ -204,49 +185,55 @@ int line_parse(char* buf, session* ses) {
                     }
                 }
 
-                else if (cur_char == '2' && arg_end_ptr[1] == '>') {
-                    if (arg_end_ptr[2] == ' ') {    // next argument MUST be the filename
-                        new_process->redirect_err = true;
-                        char* file_ptr = arg_end_ptr + 3;
-                        while (*file_ptr == ' ') {  // skip any whitespace
-                            ++file_ptr;
+                else if (cur_char == '2') {
+                    if (arg_end_ptr[1] == '>') {
+                        if (arg_end_ptr[2] == ' ') {    // next argument MUST be the filename
+                            new_process->redirect_err = true;
+                            arg_end_ptr += 2;                      // now points to the space after token
+                            to_next = dist_next_char(arg_end_ptr);
+                            if (to_next == -1) {
+                                printf("yash: must specify filename after 2>.\n");
+                                process_destroy(new_process);
+                                pgroup_destroy(new_pgroup);
+                                return -1;
+                            }
+                            char* file_begin_ptr = arg_end_ptr + to_next;
+                            uint32_t filename_len = 0;              // we need to know the length of the filename
+                            char* file_end_ptr = file_begin_ptr;
+                            while (*file_end_ptr != ' ' && *file_end_ptr != '\0') {
+                                ++filename_len;
+                                ++file_end_ptr;
+                            }
+                            new_process->redirect_err_filename = malloc(sizeof(char) * (filename_len + 1));
+                            for (uint32_t i = 0; i < filename_len; ++i) {
+                                new_process->redirect_err_filename[i] = file_begin_ptr[i];
+                            }
+                            new_process->redirect_err_filename[filename_len] = '\0';    // string sentinel
+                            // reset pointers to next argument or EOF
+                            arg_end_ptr = file_end_ptr;     // set pointer to end of filename
                         }
-                        if (*file_ptr == '\0') {
-                            printf("yash: must specify filename after 2>.\n");
+                        else {
+                            printf("yash: invalid token after 2>.\n");
                             process_destroy(new_process);
                             pgroup_destroy(new_pgroup);
                             return -1;
                         }
-                        uint32_t filename_len = 0;              // we need to know the length of the filename
-                        char* temp_ptr = file_ptr;
-                        while (*temp_ptr != ' ' && *temp_ptr != '\0') {
-                            ++filename_len;
-                            ++temp_ptr;
-                        }
-                        new_process->redirect_err_filename = malloc(sizeof(char) * (filename_len + 1));
-                        for (uint32_t i = 0; i < filename_len; ++i) {
-                            new_process->redirect_err_filename[i] = file_ptr[i];
-                        }
-                        new_process->redirect_err_filename[filename_len] = '\0';    // string sentinel
-                        // reset pointers to next argument or EOF
-                        arg_end_ptr = temp_ptr;     // set pointer to end of filename
-                        while (*arg_end_ptr == ' ') {
+                    }
+
+                    else {      // the 2 is just a normal character
+                        uint32_t arg_length = 0;
+                        while (*arg_end_ptr != ' ' && *arg_end_ptr != '\0') {
                             ++arg_end_ptr;
+                            ++arg_length;
                         }
-                        if (*arg_end_ptr == '\0') { // we reached EOF
-                            buf_ptr = arg_end_ptr;
-                            break;
+                        char* new_arg = malloc(sizeof(char) * (arg_length + 1));        // we add 1 for the string sentinel
+                        for (uint32_t i = 0; i < arg_length; ++i) {
+                            new_arg[i] = arg_begin_ptr[i];
                         }
-                        arg_begin_ptr = arg_end_ptr;
-                        arg_length = 0;
-                        continue;
+                        new_arg[arg_length] = '\0';
+                        process_insert_arg(new_process, new_arg);
                     }
-                    else {
-                        printf("yash: invalid token after 2>.\n");
-                        process_destroy(new_process);
-                        pgroup_destroy(new_pgroup);
-                        return -1;
-                    }
+
                 }
 
 
@@ -256,7 +243,8 @@ int line_parse(char* buf, session* ses) {
                     // parsing the next one.
 
                 else if (cur_char == '|') {
-                    if ()
+                    pgroup_insert(new_pgroup, new_process);
+
                 }
 
 
@@ -265,75 +253,25 @@ int line_parse(char* buf, session* ses) {
                     // It is assumed that & is the last token in the line.
 
                 else if (cur_char == '&') {
-
+                    new_pgroup->bg = true;
                 }
             }
 
+            // normal argument
             else {
-                if (arg_begin_ptr != arg_end_ptr) {             // we still need to process the last argument
-                    char* new_arg = malloc(sizeof(char) * (arg_length + 1));        // we add 1 for the string sentinel
-                    for (uint32_t i = 0; i < arg_length; ++i) {
-                        new_arg[i] = arg_begin_ptr[i];
-                    }
-                    new_arg[arg_length] = '\0';
-                    // check if we need to reallocate
-                    if (new_process->arg_size == new_process->arg_capacity - 1) {   // double the capacity and reallocate
-                        new_process->arg_capacity *= 2;
-                        char** temp = realloc(new_process->args, sizeof(char*) * new_process->arg_capacity);
-                        if (!temp) {
-                            printf("Memory allocation failure.\n");
-                            exit(1);
-                        }
-                        new_process->args = temp;
-                    }
-                    // first insert, then increment size
-                    new_process->args[new_process->arg_size] = new_arg;
-                    new_process->args[new_process->arg_size + 1] = NULL;    // for execvp
-                    ++(new_process->arg_size);
+                uint32_t arg_length = 0;
+                while (*arg_end_ptr != ' ' && *arg_end_ptr != '\0') {
+                    ++arg_end_ptr;
+                    ++arg_length;
                 }
-                buf_ptr = arg_end_ptr;                                  // set buf to exit from main loop
-                break;
-            }
-
-            if (cur_char == ' ') {
-                // add current arg to process
-                char* new_arg = malloc(sizeof(char) * (arg_length + 1));    // we add 1 for the string sentinel
+                char* new_arg = malloc(sizeof(char) * (arg_length + 1));        // we add 1 for the string sentinel
                 for (uint32_t i = 0; i < arg_length; ++i) {
                     new_arg[i] = arg_begin_ptr[i];
                 }
                 new_arg[arg_length] = '\0';
-
-                while (*arg_end_ptr == ' ') {                               // skip spaces
-                    ++arg_end_ptr;
-                }
-                if (*arg_end_ptr == '\0') {                                 // we're done with input
-                    buf_ptr = arg_end_ptr;
-                    break;
-                }
-                arg_begin_ptr = arg_end_ptr;
-                arg_length = 0;
-                // check if we need to reallocate
-                if (new_process->arg_size == new_process->arg_capacity - 1) {   // double the capacity and reallocate
-                    new_process->arg_capacity *= 2;
-                    char** temp = realloc(new_process->args, sizeof(char*) * new_process->arg_capacity);
-                    if (!temp) {
-                        printf("Memory allocation failure.\n");
-                        exit(1);
-                    }
-                    new_process->args = temp;
-                }
-                // first insert, then increment size
-                new_process->args[new_process->arg_size] = new_arg;
-                new_process->args[new_process->arg_size + 1] = NULL;        // for execvp
-                ++(new_process->arg_size);
-                continue;
+                process_insert_arg(new_process, new_arg);
             }
-
-            ++arg_end_ptr;
-            ++arg_length;
         }
-        new_pgroup->processes[new_pgroup->size] = new_process;
-        ++(new_pgroup->size);
     }
 }
 
