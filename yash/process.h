@@ -38,7 +38,7 @@ typedef struct process {
 
 void process_init(process* proc);
 void process_print(process* proc);
-void process_exec(process* proc, pgroup* pg, bool is_first);
+void process_exec(process* proc, pgroup* pg, int* fd_pipe, int pipe_index, uint32_t pipe_len);
 void process_insert_arg(process* proc, char* arg);
 void process_destroy(process* proc);
 

@@ -12,6 +12,7 @@
 
 static const uint32_t   MIN_PGROUP_CAPACITY     = 5;        // default # of processes in process group
 
+typedef struct session session;
 typedef struct process process;                             // from process.h
 
 typedef struct pgroup {
@@ -25,7 +26,7 @@ typedef struct pgroup {
 } pgroup;
 
 void pgroup_init(pgroup* pg);
-void pgroup_exec(pgroup* pg);
+void pgroup_exec(pgroup* pg, session* ses);
 void pgroup_insert(pgroup* pg, process* proc);
 void pgroup_destroy(pgroup* pg);
 

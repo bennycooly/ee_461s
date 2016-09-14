@@ -39,97 +39,94 @@ void process_print(process* proc) {
     printf("state:\t%c\n", proc->state);
 }
 
-void process_exec(process* proc, pgroup* pg, bool is_first) {
-    // we use a pipe to have the child wait for the parent to set its pgid
-    int fd_pgid[2];
-    char pgid_flag = '\0';
-    if (pipe(fd_pgid) == -1) {
-        perror("pipe");
-    }
-
+void process_exec(process* proc, pgroup* pg, int* fd_pipe, int pipe_index, uint32_t pipe_len) {
     pid_t cpid = fork();
-    if (cpid < 0) {          // fork error
+    if (cpid == -1) {          // fork error
         perror("Failed to fork");
     }
+
     else if (cpid == 0) {    // child
-        if (close(fd_pgid[1]) == -1) {
-            perror("close");
-        }
-        if (read(fd_pgid[0], &pgid_flag, sizeof(pgid_flag)) == -1) {
-            perror("read");
-            exit(1);
+        if (setpgid(0, pg->pgid)) {
+            perror("setpgid");
         }
         printf("child: pgid is now %d\n", getpgid(0));
         // check for file redirects
         if (proc->redirect_in) {
-            int fd = open(proc->redirect_in_filename, O_RDONLY);
-            if (fd == -1) {
+            int fd_redir = open(proc->redirect_in_filename, O_RDONLY);
+            if (fd_redir == -1) {
                 perror("open");
                 exit(1);
             }
-            if (dup2(fd, STDIN_FILENO) == -1) {
+            if (dup2(fd_redir, STDIN_FILENO) == -1) {
                 perror("dup2");
                 exit(1);
             }
-            if (close(fd) == -1) {
+            if (close(fd_redir) == -1) {
                 perror("close");
                 exit(1);
             }
         }
         if (proc->redirect_out) {
-            int fd = open(proc->redirect_out_filename, O_RDWR | O_CREAT, S_IRWXU);
-            if (fd == -1) {
+            int fd_redir = open(proc->redirect_out_filename, O_RDWR | O_CREAT, S_IRWXU);
+            if (fd_redir == -1) {
                 perror("open");
                 exit(1);
             }
-            if (dup2(fd, STDOUT_FILENO) == -1) {
+            if (dup2(fd_redir, STDOUT_FILENO) == -1) {
                 perror("dup2");
                 exit(1);
             }
-            if (close(fd) == -1) {
+            if (close(fd_redir) == -1) {
                 perror("close");
                 exit(1);
             }
         }
         if (proc->redirect_err) {
-            int fd = open(proc->redirect_err_filename, O_RDWR | O_CREAT, S_IRWXU);
-            if (fd == -1) {
+            int fd_redir = open(proc->redirect_err_filename, O_RDWR | O_CREAT, S_IRWXU);
+            if (fd_redir == -1) {
                 perror("open");
                 exit(1);
             }
-            if (dup2(fd, STDERR_FILENO) == -1) {
+            if (dup2(fd_redir, STDERR_FILENO) == -1) {
                 perror("dup2");
                 exit(1);
             }
-            if (close(fd) == -1) {
+            if (close(fd_redir) == -1) {
                 perror("close");
                 exit(1);
             }
         }
+
+        if (proc->pipe_in) {
+            if (dup2(fd_pipe[pipe_index-2], STDIN_FILENO) == -1) {
+                perror("dup2");
+                exit(1);
+            }
+        }
+
+        if (proc->pipe_out) {
+            if (dup2(fd_pipe[pipe_index + 1], STDOUT_FILENO) == -1) {
+                perror("dup2");
+                exit(1);
+            }
+        }
+
+        // close all pipes
+        for (uint32_t i = 0; i < pipe_len; ++i) {
+            if (close(fd_pipe[i]) == -1) {
+                perror("close");
+                exit(1);
+            }
+        }
+
         execvp(proc->args[0], proc->args);
         perror("yash");
         exit(1);
     }
+
     else {                  // parent
-        if (is_first) {
-            if (setpgid(cpid, 0) == -1) {
-                perror("setpgid");
-            }
-            pg->pgid = cpid;
-        }
-        else {
-            if (setpgid(cpid, pg->pgid) == -1) {
-                perror("setpgid");
-            }
-        }
-        if (close(fd_pgid[0]) == -1) {
-            perror("close");
-        }
-        if (write(fd_pgid[1], &pgid_flag, sizeof(pgid_flag)) == -1) {
-            perror("write");
-        }
-        if (close(fd_pgid[1]) == -1) {
-            perror("close");
+        if (setpgid(cpid, pg->pgid) == -1) {
+            perror("setpgid");
         }
         // set values in process
         proc->pid = cpid;
@@ -137,8 +134,18 @@ void process_exec(process* proc, pgroup* pg, bool is_first) {
         proc->pgid = getpgid(cpid);
         proc->state = 'R';
         process_print(proc);
-        int wstatus;
-        waitpid(-1 * proc->pgid, &wstatus, 0);
+//      waitpid(cpid, NULL, 0);
+//        int wstatus;
+//        if (pg->bg) {
+//            if (waitpid(-1, &wstatus, WNOHANG) == -1) {
+//                perror("waitpid");
+//            }
+//        }
+//        else {
+//            if (waitpid(-1, &wstatus, 0) == -1) {
+//                perror("waitpid");
+//            }
+//        }
     }
 }
 

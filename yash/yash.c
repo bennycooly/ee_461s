@@ -45,17 +45,23 @@ int main() {
     int pg_status = 1;
     bool show_prompt = true;
     while(1) {
-        pgroup* active_pgroup = session_get_active_pgroup(&yash_session);
+        pgroup* fg_pgroup = session_get_fg_pgroup(&yash_session);
         switch(sig_received) {
             case SIGINT:
                 printf("recognizing sigint received\n");
                 sig_received = 0;
-                killpg(active_pgroup->pgid, SIGINT);
+                if (fg_pgroup) {
+                    killpg(fg_pgroup->pgid, SIGINT);
+                }
                 break;
             case SIGTSTP:
                 printf("recognizing sigtstp received\n");
                 sig_received = 0;
-                killpg(active_pgroup->pgid, SIGTSTP);
+                if (fg_pgroup) {
+                    killpg(fg_pgroup->pgid, SIGTSTP);
+                    session_move_to_bg(&yash_session);
+                    printf("%s moved to bg\n", fg_pgroup->name);
+                }
                 break;
             case SIGCHLD:
                 printf("recognizing sigchld received\n");
@@ -66,10 +72,10 @@ int main() {
         }
         printf("# ");           // print leading prompt
         if (line_read(buffer, MAX_BUFFER_SIZE) == -1) {     // read the next line from user
-            show_prompt = false;
+            session_check_update(&yash_session);
             continue;
         }
-        show_prompt = true;
+        session_check_update(&yash_session);
         if (line_parse(buffer, &yash_session) == -1) {      // if we received an empty line, then continue
             continue;
         }
@@ -81,11 +87,18 @@ int main() {
  * Initialize the shell. We need to set ourselves as a new session leader.
  */
 void init_shell(session* new_session) {
-    setpgid(0, 0);
+    if (setpgid(0, 0) == -1) {
+        perror("setpgid");
+    }
+    if (tcsetpgrp(STDIN_FILENO, getpgid(getpid())) == -1) {
+        perror("tcsetpgrp");
+    }
     printf("yash spawned with:\npid:\t%d\npgid:\t%d\nsid:\t%d\n", getpid(), getpgid(getpid()), getsid(getpid()));
     new_session->sid = getpid();
-    new_session->pgroup_size = 1;
-    new_session->pgroup_capacity = 5;
+    new_session->ready_pgroup = NULL;
+    new_session->fg_pgroup = NULL;
+    new_session->bg_pgroups = malloc(sizeof(pgroup_list));
+    new_session->bg_pgroups->first = NULL;
 }
 
 void sig_handler(int sig) {
@@ -99,17 +112,17 @@ void sig_handler(int sig) {
     }
     if (sig == SIGCHLD) {
         sig_received = SIGCHLD;
-        int wstatus;
-        pid_t cpid = waitpid(-1, &wstatus, 0);
-        if (cpid < 0) {
-            perror("sigchld");
-        }
-        else if (cpid == 0) {
-            printf("no change in child state");
-        }
-        else {
-            printf("child pid %d exited\n", cpid);
-        }
+//        int wstatus;
+//        pid_t cpid = waitpid(-1, &wstatus, 0);
+//        if (cpid < 0) {
+//            perror("sigchld");
+//        }
+//        else if (cpid == 0) {
+//            printf("no change in child state");
+//        }
+//        else {
+//            printf("child pid %d exited\n", cpid);
+//        }
     }
 }
 
