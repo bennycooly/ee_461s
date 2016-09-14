@@ -55,7 +55,7 @@ void pgroup_exec(pgroup* pg, session* ses) {
             exit(1);
         }
         pg->pgid = getpgid(getpid());
-        printf("New process group created with pgid %d\n", pg->pgid);
+        // printf("New process group created with pgid %d\n", pg->pgid);
 
         // set our signals
 //        struct sigaction sa;
@@ -104,12 +104,7 @@ void pgroup_exec(pgroup* pg, session* ses) {
 
         }
 
-        // now indicate to the parent that we're done forking all the children
-        kill(ppid, SIGUSR1);
-        printf("finished forking all children\n");
-
         // close all the pipes
-        printf("Number of pipes: %d\n", num_pipes);
         for (uint32_t i = 0; i < (2 * num_pipes); ++i) {
             if (close(fd[i]) == -1) {
                 perror("close");
@@ -117,17 +112,20 @@ void pgroup_exec(pgroup* pg, session* ses) {
             }
         }
 
+        // now indicate to the parent that we're done forking all the children
+        fflush(stdout);
+        kill(ppid, SIGUSR1);
+        // printf("finished forking all children\n");
+
         int wstatus;
 
-        printf("pgid is %d\n", pg->pgid);
         if (waitpid(-1 * pg->pgid, &wstatus, 0) == -1) {
-            bool pgroup_is_stopped;
             perror("pgroup waitpid");
             if (errno == EINTR) {
                 printf("signal received\n");
                 switch (sig_received) {
                     case SIGINT:
-                        printf("received SIGINT\n");
+                        printf("child received SIGINT\n");
                         for (uint32_t i = 0; i < pg->size; ++i) {
                             if (kill(pg->processes[i]->pid, SIGINT) == -1) {
                                 perror("kill");
@@ -139,14 +137,26 @@ void pgroup_exec(pgroup* pg, session* ses) {
 
                     case SIGTSTP:
                         printf("child received SIGTSTP\n");
-                        pgroup_is_stopped = true;
                         for (uint32_t i = 0; i < pg->size; ++i) {
                             if (kill(pg->processes[i]->pid, SIGTSTP) == -1) {
                                 perror("kill");
                             }
                             pg->processes[i]->state = 'T';
                         }
+                        while (sig_received != SIGCONT) {}
+                        printf("all children finished from SIGCONT\n");
+                        for (uint32_t i = 0; i < pg->size; ++i) {
+                            if (kill(pg->processes[i]->pid, SIGCONT) == -1) {
+                                perror("kill");
+                            }
+                            pg->processes[i]->state = 'R';
+                        }
+                        if (waitpid(-1 * pg->pgid, &wstatus, 0) == -1) {
+                            perror("pgroup waitpid");
+                        }
+
                         sig_received = 0;
+                        exit(0);
                         break;
 
                     case SIGCONT:
@@ -160,8 +170,9 @@ void pgroup_exec(pgroup* pg, session* ses) {
                         if (waitpid(-1 * pg->pgid, &wstatus, 0) == -1) {
                             perror("pgroup waitpid");
                         }
-                        printf("all children finished from SIGCONT\n");
+                        // printf("all children finished from SIGCONT\n");
                         exit(0);
+
                     default:
                         sig_received = 0;
                         break;
@@ -172,14 +183,11 @@ void pgroup_exec(pgroup* pg, session* ses) {
 
         // printf("wstatus is %d\n", wstatus);
         free(fd);
-        printf("all children are done\n");
+        // printf("all children are done\n");
         exit(0);
     }
 
     else {
-        // wait for child to finish forking all processes
-        while (sig_received != SIGUSR1) {}
-
         // set our pgid
         pg->pgid = cpid;
         pg->state = 'R';
@@ -189,22 +197,24 @@ void pgroup_exec(pgroup* pg, session* ses) {
             pg->processes[i]->state = 'R';
         }
 
+        // wait for child to finish forking all processes
+        while (sig_received != SIGUSR1) {}
+        sig_received = 0;
+
         int wstatus;
         if (pg->bg) {
-            printf("bg\n");
             session_insert_bg_pgroup(ses, pg);
             if (waitpid(-1 * pg->pgid, &wstatus, WNOHANG) == -1) {
                 perror("waitpid");
             }
         }
         else {
-            printf("fg\n");
             session_set_fg_pgroup(ses, pg);
             if (waitpid(-1 * pg->pgid, &wstatus, 0) == -1) {
                 perror("waitpid");
             }
-            printf("children finished\n");
-            session_remove_fg_pgroup(ses);
+            // printf("pgroup finished\n");
+            // session_remove_fg_pgroup(ses);
         }
 
     }

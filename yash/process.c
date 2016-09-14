@@ -40,6 +40,7 @@ void process_print(process* proc) {
 }
 
 void process_exec(process* proc, pgroup* pg, int* fd_pipe, int pipe_index, uint32_t pipe_len) {
+    pid_t ppid = getpid();
     pid_t cpid = fork();
     if (cpid == -1) {          // fork error
         perror("Failed to fork");
@@ -49,7 +50,7 @@ void process_exec(process* proc, pgroup* pg, int* fd_pipe, int pipe_index, uint3
         if (setpgid(0, pg->pgid)) {
             perror("setpgid");
         }
-        printf("child: pgid is now %d\n", getpgid(0));
+        // printf("child set pgid to %d\n", getpgid(0));
         // check for file redirects
         if (proc->redirect_in) {
             int fd_redir = open(proc->redirect_in_filename, O_RDONLY);
@@ -128,24 +129,12 @@ void process_exec(process* proc, pgroup* pg, int* fd_pipe, int pipe_index, uint3
         if (setpgid(cpid, pg->pgid) == -1) {
             perror("setpgid");
         }
+        // printf("parent set pgid to %d\n", pg->pgid);
         // set values in process
         proc->pid = cpid;
         proc->ppid = getpid();
         proc->pgid = getpgid(cpid);
         proc->state = 'R';
-        process_print(proc);
-//      waitpid(cpid, NULL, 0);
-//        int wstatus;
-//        if (pg->bg) {
-//            if (waitpid(-1, &wstatus, WNOHANG) == -1) {
-//                perror("waitpid");
-//            }
-//        }
-//        else {
-//            if (waitpid(-1, &wstatus, 0) == -1) {
-//                perror("waitpid");
-//            }
-//        }
     }
 }
 

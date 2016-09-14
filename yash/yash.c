@@ -43,34 +43,44 @@ int main() {
     }
     char buffer[MAX_BUFFER_SIZE];
     int pg_status = 1;
-    bool show_prompt = true;
     while(1) {
+        bool show_prompt = true;
         pgroup* fg_pgroup = session_get_fg_pgroup(&yash_session);
         switch(sig_received) {
             case SIGINT:
                 printf("recognizing sigint received\n");
-                sig_received = 0;
                 if (fg_pgroup) {
                     killpg(fg_pgroup->pgid, SIGINT);
                 }
+                sig_received = 0;
                 break;
             case SIGTSTP:
                 printf("recognizing sigtstp received\n");
-                sig_received = 0;
                 if (fg_pgroup) {
                     killpg(fg_pgroup->pgid, SIGTSTP);
                     session_move_to_bg(&yash_session);
                     printf("%s moved to bg\n", fg_pgroup->name);
                 }
+                sig_received = 0;
                 break;
             case SIGCHLD:
-                printf("recognizing sigchld received\n");
+                // printf("recognizing sigchld received\n");
+                if (fg_pgroup) {
+                    session_remove_fg_pgroup(&yash_session);
+                }
+                else {
+                    show_prompt = false;
+                }
                 sig_received = 0;
                 break;
             default:
                 break;
         }
-        printf("# ");           // print leading prompt
+
+        if (show_prompt) {
+            printf("# ");           // print leading prompt
+        }
+
         if (line_read(buffer, MAX_BUFFER_SIZE) == -1) {     // read the next line from user
             session_check_update(&yash_session);
             continue;

@@ -114,6 +114,7 @@ int line_parse(char* buf, session* ses) {
                     session_move_to_fg(ses);
                     if (bg_pgroup) {
                         killpg(bg_pgroup->pgid, SIGCONT);
+                        bg_pgroup->state = 'R';
                         if (waitpid(-1 * bg_pgroup->pgid, &wstatus, 0) == -1) {
                             perror("waitpid");
                         }
@@ -132,6 +133,7 @@ int line_parse(char* buf, session* ses) {
                             return -1;
                         }
                         killpg(bg_pgroup->pgid, SIGCONT);
+                        bg_pgroup->state = 'R';
                         if (waitpid(-1 * bg_pgroup->pgid, &wstatus, WNOHANG) == -1) {
                             perror("waitpid");
                         }
