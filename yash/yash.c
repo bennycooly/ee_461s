@@ -6,9 +6,8 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
+#include <sys/types.h>
+#include <signal.h>
 
 /**
  * Our headers.

@@ -8,8 +8,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #include "pgroup-list.h"
+#include "pgroup.h"
 
 
 static const uint32_t   MIN_SESSION_CAPACITY     = 5;        // default # of pgroups in session

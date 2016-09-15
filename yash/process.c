@@ -40,7 +40,6 @@ void process_print(process* proc) {
 }
 
 void process_exec(process* proc, pgroup* pg, int* fd_pipe, int pipe_index, uint32_t pipe_len) {
-    pid_t ppid = getpid();
     pid_t cpid = fork();
     if (cpid == -1) {          // fork error
         perror("Failed to fork");

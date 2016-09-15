@@ -1,3 +1,0 @@
-/home/bennycooly/Projects/ee_461s/yash/CMakeFiles/edit_cache.dir
-/home/bennycooly/Projects/ee_461s/yash/CMakeFiles/rebuild_cache.dir
-/home/bennycooly/Projects/ee_461s/yash/CMakeFiles/yash.dir

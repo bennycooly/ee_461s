@@ -1,1 +1,0 @@
-/usr/bin/cc     CMakeFiles/yash.dir/yash.c.o CMakeFiles/yash.dir/line.c.o CMakeFiles/yash.dir/pgroup.c.o CMakeFiles/yash.dir/pgroup-list.c.o CMakeFiles/yash.dir/process.c.o CMakeFiles/yash.dir/session.c.o  -o yash 

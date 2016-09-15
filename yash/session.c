@@ -7,9 +7,9 @@
 #include <wait.h>
 
 #include "session.h"
-#include "pgroup-list.h"
-#include "pgroup.h"
 #include "process.h"
+#include "pgroup.h"
+#include "pgroup-list.h"
 
 void set_session() {
 
