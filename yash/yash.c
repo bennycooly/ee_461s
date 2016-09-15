@@ -14,9 +14,11 @@
  * Our headers.
  */
 #include "line.h"
-#include "command.h"
 #include "session.h"
 #include "pgroup.h"
+
+#define RESET   "\033[0m"
+#define BOLDCYAN    "\033[1m\033[36m"      /* Bold Cyan */
 
 void sig_handler(int signo);
 void init_shell(session* new_session);
@@ -27,7 +29,6 @@ volatile sig_atomic_t sig_received;
 int main() {
     session yash_session;
     init_shell(&yash_session);
-    printf("our fake sid is %d\n", yash_session.sid);
     struct sigaction sa;
     sa.sa_handler = sig_handler;
     sa.sa_flags = 0;
@@ -42,25 +43,27 @@ int main() {
         perror("sigaction");
     }
     char buffer[MAX_BUFFER_SIZE];
-    int pg_status = 1;
     while(1) {
         bool show_prompt = true;
         pgroup* fg_pgroup = session_get_fg_pgroup(&yash_session);
         switch(sig_received) {
             case SIGINT:
-                printf("recognizing sigint received\n");
+                // printf("recognizing sigint received\n");
                 if (fg_pgroup) {
                     killpg(fg_pgroup->pgid, SIGINT);
+                    show_prompt = false;
                 }
+                fputc('\n', stdout);
                 sig_received = 0;
                 break;
             case SIGTSTP:
-                printf("recognizing sigtstp received\n");
+                // printf("recognizing sigtstp received\n");
                 if (fg_pgroup) {
                     killpg(fg_pgroup->pgid, SIGTSTP);
                     session_move_to_bg(&yash_session);
-                    printf("%s moved to bg\n", fg_pgroup->name);
+                    // printf("%s moved to bg\n", fg_pgroup->name);
                 }
+                fputc('\n', stdout);
                 sig_received = 0;
                 break;
             case SIGCHLD:
@@ -78,11 +81,11 @@ int main() {
         }
 
         if (show_prompt) {
-            printf("# ");           // print leading prompt
+            printf(BOLDCYAN "# " RESET);           // print leading prompt
         }
 
         if (line_read(buffer, MAX_BUFFER_SIZE) == -1) {     // read the next line from user
-            session_check_update(&yash_session);
+            // session_check_update(&yash_session);
             continue;
         }
         session_check_update(&yash_session);
@@ -103,7 +106,7 @@ void init_shell(session* new_session) {
     if (tcsetpgrp(STDIN_FILENO, getpgid(getpid())) == -1) {
         perror("tcsetpgrp");
     }
-    printf("yash spawned with:\npid:\t%d\npgid:\t%d\nsid:\t%d\n", getpid(), getpgid(getpid()), getsid(getpid()));
+    // printf("yash spawned with:\npid:\t%d\npgid:\t%d\nsid:\t%d\n", getpid(), getpgid(getpid()), getsid(getpid()));
     new_session->sid = getpid();
     new_session->ready_pgroup = NULL;
     new_session->fg_pgroup = NULL;
@@ -113,26 +116,15 @@ void init_shell(session* new_session) {
 
 void sig_handler(int sig) {
     if (sig == SIGINT) {
-        printf("recieved SIGINT\n");
+        // printf("recieved SIGINT\n");
         sig_received = SIGINT;
     }
     if (sig == SIGTSTP) {
-        printf("received SIGTSTP\n");
+        // printf("received SIGTSTP\n");
         sig_received = SIGTSTP;
     }
     if (sig == SIGCHLD) {
         sig_received = SIGCHLD;
-//        int wstatus;
-//        pid_t cpid = waitpid(-1, &wstatus, 0);
-//        if (cpid < 0) {
-//            perror("sigchld");
-//        }
-//        else if (cpid == 0) {
-//            printf("no change in child state");
-//        }
-//        else {
-//            printf("child pid %d exited\n", cpid);
-//        }
     }
 }
 

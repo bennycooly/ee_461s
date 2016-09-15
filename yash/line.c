@@ -111,12 +111,14 @@ int line_parse(char* buf, session* ses) {
 
                 if (cur_char == 'f') {
                     pgroup* bg_pgroup = session_get_recent_bg_pgroup(ses);
-                    session_move_to_fg(ses);
+
                     if (bg_pgroup) {
+                        printf("%s\n", bg_pgroup->name);
+                        session_move_to_fg(ses);
                         killpg(bg_pgroup->pgid, SIGCONT);
                         bg_pgroup->state = 'R';
-                        if (waitpid(-1 * bg_pgroup->pgid, &wstatus, 0) == -1) {
-                            perror("waitpid");
+                        if (waitpid(bg_pgroup->pgid, &wstatus, 0) == -1) {
+                            // perror("waitpid");
                         }
                     }
                     else {
@@ -129,13 +131,14 @@ int line_parse(char* buf, session* ses) {
                     pgroup* bg_pgroup = session_get_recent_bg_pgroup(ses);
                     if (bg_pgroup) {
                         if (bg_pgroup->state == 'R') {
-                            printf("Already running in background\n");
+                            printf("yash: bg: already running in background\n");
                             return -1;
                         }
+                        session_print_cur_bg_pgroup(ses);
                         killpg(bg_pgroup->pgid, SIGCONT);
                         bg_pgroup->state = 'R';
-                        if (waitpid(-1 * bg_pgroup->pgid, &wstatus, WNOHANG) == -1) {
-                            perror("waitpid");
+                        if (waitpid(bg_pgroup->pgid, &wstatus, WNOHANG) == -1) {
+                            // perror("waitpid");
                         }
                     }
                     else {

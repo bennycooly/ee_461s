@@ -5,6 +5,8 @@
 #ifndef YASH_PGROUP_LIST_H
 #define YASH_PGROUP_LIST_H
 
+#include <stdint.h>
+
 typedef struct pgroup pgroup;
 typedef struct pgroup_node pgroup_node;
 
@@ -12,10 +14,11 @@ typedef struct pgroup_node {
     pgroup* pg;
     pgroup_node* previous;
     pgroup_node* next;
-} pgroup_node ;
+} pgroup_node;
 
 typedef struct pgroup_list {
     pgroup_node* first;
+    uint32_t size;
 } pgroup_list;
 
 

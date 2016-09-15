@@ -62,5 +62,6 @@ void session_move_to_fg(session* ses);
 void session_check_update(session*);
 
 void session_print_bg_pgroups(session*);
+void session_print_cur_bg_pgroup(session*);
 
 #endif //YASH_JOB_CONTROL_H

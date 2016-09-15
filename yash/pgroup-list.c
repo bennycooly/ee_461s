@@ -33,6 +33,7 @@ void pgroup_list_insert_pg(pgroup_list* pg_list, pgroup* pg) {
         pg_list->first->previous = new_pg_node;
         pg_list->first = new_pg_node;
     }
+    ++pg_list->size;
 }
 
 void pgroup_list_remove_node(pgroup_list* pg_list, pgroup_node* pg_node) {
@@ -40,5 +41,6 @@ void pgroup_list_remove_node(pgroup_list* pg_list, pgroup_node* pg_node) {
         pg_list->first = pg_list->first->next;
     }
     pgroup_node_destroy(pg_node);
+    --pg_list->size;
 }
 

@@ -5,7 +5,7 @@
 #ifndef YASH_LINE_H
 #define YASH_LINE_H
 
-#include "command.h"
+#include "session.h"
 
 static const uint32_t   MAX_BUFFER_SIZE    = 2000;
 

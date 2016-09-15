@@ -64,7 +64,7 @@ void session_move_to_bg(session* ses) {
     pgroup* fg_pg = ses->fg_pgroup;
     if (fg_pg) {
         fg_pg->state = 'T';
-        printf("Setting process state to stopped\n");
+        // printf("Setting process state to stopped\n");
         pgroup_list_insert_pg(ses->bg_pgroups, fg_pg);
         ses->fg_pgroup = NULL;
     }
@@ -80,35 +80,76 @@ void session_move_to_fg(session* ses) {
 
 void session_check_update(session* ses) {
     pgroup_node* cur_pg_node = ses->bg_pgroups->first;
+    if (!cur_pg_node) {
+        return;
+    }
+    pgroup_node* temp_pg_node = cur_pg_node;
+    while (cur_pg_node) {
+        temp_pg_node = cur_pg_node;
+        cur_pg_node = cur_pg_node->next;
+    }
+    // set to the last node
+    cur_pg_node = temp_pg_node;
     uint32_t index = 1;
-    while(cur_pg_node) {
-        int wstatus;
-        if (waitpid(-1 * cur_pg_node->pg->pgid, &wstatus, WNOHANG) == -1) {
-            perror("wait");
-            printf("[%d]+ Done\t\t%s\n", index, cur_pg_node->pg->name);
+    while (cur_pg_node) {
+        if (waitpid(cur_pg_node->pg->pgid, NULL, WNOHANG) == -1) {
+            if (!cur_pg_node->previous) {
+                printf("[%d]+ ", index);
+            }
+            else {
+                printf("[%d]- ", index);
+            }
+            printf("Done\t\t%s\n", cur_pg_node->pg->name);
             pgroup_list_remove_node(ses->bg_pgroups, cur_pg_node);
         }
-        cur_pg_node = cur_pg_node->next;
+        cur_pg_node = cur_pg_node->previous;
         ++index;
     }
 }
 
+/**
+ * We want to print out our linked list backwards.
+ * @param ses
+ */
 void session_print_bg_pgroups(session* ses) {
     pgroup_node* cur_pg_node = ses->bg_pgroups->first;
     if (!cur_pg_node) {
-        printf("No jobs\n");
+        printf("yash: no jobs\n");
         return;
     }
+    pgroup_node* temp_pg_node = cur_pg_node;
+    while (cur_pg_node) {
+        temp_pg_node = cur_pg_node;
+        cur_pg_node = cur_pg_node->next;
+    }
+    // set to the last node
+    cur_pg_node = temp_pg_node;
     uint32_t index = 1;
-    while(cur_pg_node) {
+    while (cur_pg_node) {
+        if (!cur_pg_node->previous) {
+            printf("[%d]+ ", index);
+        }
+        else {
+            printf("[%d]- ", index);
+        }
         if (cur_pg_node->pg->state == 'R') {
-            printf("[%d]+ Running\t\t%s\n", index, cur_pg_node->pg->name);
+            printf("Running\t\t%s\n", cur_pg_node->pg->name);
         }
         else if (cur_pg_node->pg->state == 'T') {
-            printf("[%d]- Stopped\t\t%s\n", index, cur_pg_node->pg->name);
+            printf("Stopped\t\t%s\n", cur_pg_node->pg->name);
         }
 
-        cur_pg_node = cur_pg_node->next;
+        cur_pg_node = cur_pg_node->previous;
         ++index;
     }
+}
+
+/**
+ * Similar to printing all jobs except we just print the matched pgroup.
+ * @param ses
+ * @param pg
+ */
+void session_print_cur_bg_pgroup(session* ses) {
+    pgroup_node* cur_pg_node = session_get_recent_bg_pgroup_node(ses);
+    printf("[%d]+ Running\t\t%s\n", ses->bg_pgroups->size, cur_pg_node->pg->name);
 }
