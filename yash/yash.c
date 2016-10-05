@@ -26,6 +26,10 @@ void init_shell(session* new_session);
 volatile sig_atomic_t sig_received;
 
 int main() {
+
+
+
+
     session yash_session;
     init_shell(&yash_session);
     struct sigaction sa;

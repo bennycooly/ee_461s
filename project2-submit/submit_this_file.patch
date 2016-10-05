@@ -1,0 +1,1345 @@
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/filesys/filesys.c ../project2/filesys/filesys.c
+--- OSF16project2/filesys/filesys.c	2016-10-04 21:29:32.045904772 -0500
++++ ../project2/filesys/filesys.c	2016-09-29 20:52:11.483897401 -0500
+@@ -37,7 +37,7 @@
+ {
+   free_map_close ();
+ }
+-
++
+ /* Creates a file named NAME with the given INITIAL_SIZE.
+    Returns true if successful, false otherwise.
+    Fails if a file named NAME already exists,
+Only in ../project2/.git: COMMIT_EDITMSG
+Only in ../project2/.git: FETCH_HEAD
+Only in ../project2/.git/objects: 00
+Only in ../project2/.git/objects: 05
+Only in ../project2/.git/objects: 07
+Only in ../project2/.git/objects: 08
+Only in ../project2/.git/objects: 09
+Only in ../project2/.git/objects: 0a
+Only in ../project2/.git/objects: 0d
+Only in ../project2/.git/objects: 12
+Only in ../project2/.git/objects: 16
+Only in ../project2/.git/objects: 1a
+Only in ../project2/.git/objects: 20
+Only in ../project2/.git/objects: 26
+Only in ../project2/.git/objects: 2e
+Only in ../project2/.git/objects: 34
+Only in ../project2/.git/objects: 35
+Only in ../project2/.git/objects: 3b
+Only in ../project2/.git/objects: 3c
+Only in ../project2/.git/objects: 3f
+Only in ../project2/.git/objects: 41
+Only in ../project2/.git/objects: 44
+Only in ../project2/.git/objects: 4d
+Only in ../project2/.git/objects: 4e
+Only in ../project2/.git/objects: 50
+Only in ../project2/.git/objects: 58
+Only in ../project2/.git/objects: 5a
+Only in ../project2/.git/objects: 60
+Only in ../project2/.git/objects: 62
+Only in ../project2/.git/objects: 63
+Only in ../project2/.git/objects: 65
+Only in ../project2/.git/objects: 66
+Only in ../project2/.git/objects: 67
+Only in ../project2/.git/objects: 79
+Only in ../project2/.git/objects: 80
+Only in ../project2/.git/objects: 86
+Only in ../project2/.git/objects: 88
+Only in ../project2/.git/objects: 8a
+Only in ../project2/.git/objects: 8d
+Only in ../project2/.git/objects: 8e
+Only in ../project2/.git/objects: 8f
+Only in ../project2/.git/objects: 90
+Only in ../project2/.git/objects: 93
+Only in ../project2/.git/objects: 95
+Only in ../project2/.git/objects: 9b
+Only in ../project2/.git/objects: a1
+Only in ../project2/.git/objects: a2
+Only in ../project2/.git/objects: a3
+Only in ../project2/.git/objects: a4
+Only in ../project2/.git/objects: b0
+Only in ../project2/.git/objects: b1
+Only in ../project2/.git/objects: b3
+Only in ../project2/.git/objects: b4
+Only in ../project2/.git/objects: b6
+Only in ../project2/.git/objects: ba
+Only in ../project2/.git/objects: bb
+Only in ../project2/.git/objects: bf
+Only in ../project2/.git/objects: c1
+Only in ../project2/.git/objects: c6
+Only in ../project2/.git/objects: c8
+Only in ../project2/.git/objects: cb
+Only in ../project2/.git/objects: d1
+Only in ../project2/.git/objects: d3
+Only in ../project2/.git/objects: d4
+Only in ../project2/.git/objects: d7
+Only in ../project2/.git/objects: d8
+Only in ../project2/.git/objects: dd
+Only in ../project2/.git/objects: df
+Only in ../project2/.git/objects: e3
+Only in ../project2/.git/objects: e6
+Only in ../project2/.git/objects: e7
+Only in ../project2/.git/objects: e8
+Only in ../project2/.git/objects: e9
+Only in ../project2/.git/objects: ec
+Only in ../project2/.git/objects: ef
+Only in ../project2/.git/objects: fa
+Only in ../project2/.git/objects: fc
+Only in ../project2/.git/objects: ff
+Only in ../project2/.git/objects/pack: pack-8fb883ef1297399c073d0427bd21e2f0dad24afd.idx
+Only in ../project2/.git/objects/pack: pack-8fb883ef1297399c073d0427bd21e2f0dad24afd.pack
+Only in ../project2/.git: ORIG_HEAD
+Only in ../project2: submit.bin
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/threads/init.c ../project2/threads/init.c
+--- OSF16project2/threads/init.c	2016-10-04 21:29:32.059238061 -0500
++++ ../project2/threads/init.c	2016-09-27 17:58:00.681070933 -0500
+@@ -134,7 +134,7 @@
+ 
+   /* Finish up. */
+   shutdown ();
+-  thread_exit ();
++  thread_exit (0);
+ }
+ 
+ /* Clear the "BSS", a segment that should be initialized to
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/threads/thread.c ../project2/threads/thread.c
+--- OSF16project2/threads/thread.c	2016-10-04 21:29:32.059238061 -0500
++++ ../project2/threads/thread.c	2016-09-30 04:36:03.336587689 -0500
+@@ -98,6 +98,11 @@
+   init_thread (initial_thread, "main", PRI_DEFAULT);
+   initial_thread->status = THREAD_RUNNING;
+   initial_thread->tid = allocate_tid ();
++
++  // our fields
++  sema_init(&initial_thread->child_loaded, 0);
++  sema_init(&initial_thread->done, 0);
++  sema_init(&initial_thread->parent_ready, 0);
+ }
+ 
+ /* Starts preemptive thread scheduling by enabling interrupts.
+@@ -170,6 +175,7 @@
+   struct kernel_thread_frame *kf;
+   struct switch_entry_frame *ef;
+   struct switch_threads_frame *sf;
++  enum intr_level old_level;
+   tid_t tid;
+ 
+   ASSERT (function != NULL);
+@@ -183,6 +189,8 @@
+   init_thread (t, name, priority);
+   tid = t->tid = allocate_tid ();
+ 
++  old_level = intr_disable();
++
+   /* Stack frame for kernel_thread(). */
+   kf = alloc_frame (t, sizeof *kf);
+   kf->eip = NULL;
+@@ -198,6 +206,30 @@
+   sf->eip = switch_entry;
+   sf->ebp = 0;
+ 
++  intr_set_level(old_level);
++
++  t->parent_tid = thread_tid();
++  
++  sema_init(&t->done, 0);
++  sema_init(&t->child_loaded, 0);
++  sema_init(&t->parent_ready, 0);
++  t->child_load_status = false;
++  t->wait = 0;
++  t->wait_tid = 0;
++//  printf("%d\n\n\n\n\n\n", t->parent_tid);
++  // struct thread *hey = findThread(t->parent_tid);
++  // struct thread* childt = malloc(sizeof(struct thread));
++
++  // childt->tid = tid;
++  // childt->parent_tid =thread_tid();
++  // sema_init(&childt->done, 0);
++  // sema_init(&childt->loaded, 0);
++  struct exit_elem *ee = (struct exit_elem*)malloc(sizeof(struct exit_elem));
++  ee->set_flag = 0;
++  ee->tid = tid;
++  list_push_back(&thread_current()->children_exit, &ee->elem);
++  list_push_back(&thread_current()->children, &t->child_elem);
++
+   /* Add to run queue. */
+   thread_unblock (t);
+ 
+@@ -278,19 +310,21 @@
+ /* Deschedules the current thread and destroys it.  Never
+    returns to the caller. */
+ void
+-thread_exit (void) 
++thread_exit (int status) 
+ {
+   ASSERT (!intr_context ());
+ 
+ #ifdef USERPROG
+-  process_exit ();
++  process_exit (status);
+ #endif
+ 
+   /* Remove thread from all threads list, set our status to dying,
+      and schedule another process.  That process will destroy us
+      when it calls thread_schedule_tail(). */
+   intr_disable ();
++  // printf("%s being removed...\n", thread_current()->name);
+   list_remove (&thread_current()->allelem);
++  list_remove(&thread_current()->child_elem);
+   thread_current ()->status = THREAD_DYING;
+   schedule ();
+   NOT_REACHED ();
+@@ -422,7 +456,7 @@
+ 
+   intr_enable ();       /* The scheduler runs with interrupts off. */
+   function (aux);       /* Execute the thread function. */
+-  thread_exit ();       /* If function() returns, kill the thread. */
++  thread_exit (0);       /* If function() returns, kill the thread. */
+ }
+ 
+ /* Returns the running thread. */
+@@ -463,10 +497,16 @@
+   t->stack = (uint8_t *) t + PGSIZE;
+   t->priority = priority;
+   t->magic = THREAD_MAGIC;
+-
++  t->wait = 0;
+   old_level = intr_disable ();
+   list_push_back (&all_list, &t->allelem);
+   intr_set_level (old_level);
++
++  list_init(&t->children);
++  list_init(&t->fd_list);
++  list_init(&t->children_exit);
++  t->next_file = 2;
++  t->parent_tid = NULL;
+ }
+ 
+ /* Allocates a SIZE-byte frame at the top of thread T's stack and
+@@ -582,3 +622,38 @@
+ /* Offset of `stack' member within `struct thread'.
+    Used by switch.S, which can't figure it out on its own. */
+ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
++
++struct thread *findThread(int tidf){
++  struct thread *result;
++  struct list_elem *le;
++  for (le = list_begin (&all_list); le != list_end(&all_list); le = list_next(le)){
++    struct thread *t = list_entry(le, struct thread, allelem);
++    if(t->tid == tidf){
++      return t;
++    }
++  }
++  return NULL;
++}
++
++struct thread *getChild(int tid, struct thread *parent){
++   struct list_elem *le;
++  for (le = list_begin (&parent->children); le != list_end(&parent->children); le = list_next(le)){
++    struct thread *t = list_entry(le, struct thread, child_elem);
++    if(t->tid == tid){
++      return t;
++    }
++  }
++  return NULL;
++}
++
++struct exit_elem *getEE(int tid, struct thread *parent){
++  struct list_elem *le;
++  for (le = list_begin (&parent->children_exit); le != list_end(&parent->children_exit); le = list_next(le)){
++    struct exit_elem *ee = list_entry(le, struct exit_elem, elem);
++    if(ee->tid == tid){
++      return ee;
++    }
++  }
++  return NULL;
++}
++
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/threads/thread.h ../project2/threads/thread.h
+--- OSF16project2/threads/thread.h	2016-10-04 21:29:32.059238061 -0500
++++ ../project2/threads/thread.h	2016-10-04 20:45:24.175675835 -0500
+@@ -4,6 +4,18 @@
+ #include <debug.h>
+ #include <list.h>
+ #include <stdint.h>
++#include <debug.h>
++#include <stddef.h>
++#include <random.h>
++#include <stdio.h>
++#include <string.h>
++#include "threads/flags.h"
++#include "threads/interrupt.h"
++#include "threads/intr-stubs.h"
++#include "threads/palloc.h"
++#include "threads/switch.h"
++#include "threads/synch.h"
++#include "threads/vaddr.h"
+ 
+ /* States in a thread's life cycle. */
+ enum thread_status
+@@ -89,19 +101,48 @@
+     uint8_t *stack;                     /* Saved stack pointer. */
+     int priority;                       /* Priority. */
+     struct list_elem allelem;           /* List element for all threads list. */
+-
++    int wait;
++    tid_t wait_tid;               // stores the tid that wait called
++    bool child_load_status;
+     /* Shared between thread.c and synch.c. */
+     struct list_elem elem;              /* List element. */
+-
++    struct list_elem child_elem;
++    struct list children;   //list of children
++    struct list children_exit;
++    tid_t parent_tid;   //tid of parent
++    int done_fin;
++    struct semaphore done;    //semaphore signaling when thread has exitted
++    struct semaphore child_loaded;  // semaphore signaling when child thread has been loaded
++    struct semaphore parent_ready;
++    struct file *rox_executable;
+ #ifdef USERPROG
+     /* Owned by userprog/process.c. */
+     uint32_t *pagedir;                  /* Page directory. */
+ #endif
+ 
+     /* Owned by thread.c. */
+-    unsigned magic;                     /* Detects stack overflow. */
++    unsigned magic;                    /* Detects stack overflow. */
++
++    //TODO: file descriptor table
++    struct list fd_list;
++    unsigned next_file;
+   };
+ 
++//TODO: file descriptor element
++struct fd_elem{
++    unsigned fd;
++    struct file *file;
++    struct list_elem element;
++};
++
++
++struct exit_elem{
++  tid_t tid;
++  int exit_code;
++  int set_flag; //0 if exit code has not been set, 1 if it has
++  struct list_elem elem;
++};
++
+ /* If false (default), use round-robin scheduler.
+    If true, use multi-level feedback queue scheduler.
+    Controlled by kernel command-line option "-o mlfqs". */
+@@ -123,7 +164,7 @@
+ tid_t thread_tid (void);
+ const char *thread_name (void);
+ 
+-void thread_exit (void) NO_RETURN;
++void thread_exit (int status) NO_RETURN;
+ void thread_yield (void);
+ 
+ /* Performs some operation on thread t, given auxiliary data AUX. */
+@@ -138,4 +179,7 @@
+ int thread_get_recent_cpu (void);
+ int thread_get_load_avg (void);
+ 
++struct thread *findThread(int tidf);
++struct thread *getChild(int tid, struct thread *parent);
++
+ #endif /* threads/thread.h */
+Only in ../project2/userprog: build
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/userprog/exception.c ../project2/userprog/exception.c
+--- OSF16project2/userprog/exception.c	2016-10-04 21:29:32.059238061 -0500
++++ ../project2/userprog/exception.c	2016-09-30 03:57:52.219973951 -0500
+@@ -4,12 +4,14 @@
+ #include "userprog/gdt.h"
+ #include "threads/interrupt.h"
+ #include "threads/thread.h"
++#include "threads/vaddr.h"
+ 
+ /* Number of page faults processed. */
+ static long long page_fault_cnt;
+ 
+-static void kill (struct intr_frame *);
+-static void page_fault (struct intr_frame *);
++static void kill(struct intr_frame *);
++
++static void page_fault(struct intr_frame *);
+ 
+ /* Registers handlers for interrupts that can be caused by user
+    programs.
+@@ -27,84 +29,80 @@
+    Refer to [IA32-v3a] section 5.15 "Exception and Interrupt
+    Reference" for a description of each of these exceptions. */
+ void
+-exception_init (void) 
+-{
+-  /* These exceptions can be raised explicitly by a user program,
+-     e.g. via the INT, INT3, INTO, and BOUND instructions.  Thus,
+-     we set DPL==3, meaning that user programs are allowed to
+-     invoke them via these instructions. */
+-  intr_register_int (3, 3, INTR_ON, kill, "#BP Breakpoint Exception");
+-  intr_register_int (4, 3, INTR_ON, kill, "#OF Overflow Exception");
+-  intr_register_int (5, 3, INTR_ON, kill,
+-                     "#BR BOUND Range Exceeded Exception");
+-
+-  /* These exceptions have DPL==0, preventing user processes from
+-     invoking them via the INT instruction.  They can still be
+-     caused indirectly, e.g. #DE can be caused by dividing by
+-     0.  */
+-  intr_register_int (0, 0, INTR_ON, kill, "#DE Divide Error");
+-  intr_register_int (1, 0, INTR_ON, kill, "#DB Debug Exception");
+-  intr_register_int (6, 0, INTR_ON, kill, "#UD Invalid Opcode Exception");
+-  intr_register_int (7, 0, INTR_ON, kill,
+-                     "#NM Device Not Available Exception");
+-  intr_register_int (11, 0, INTR_ON, kill, "#NP Segment Not Present");
+-  intr_register_int (12, 0, INTR_ON, kill, "#SS Stack Fault Exception");
+-  intr_register_int (13, 0, INTR_ON, kill, "#GP General Protection Exception");
+-  intr_register_int (16, 0, INTR_ON, kill, "#MF x87 FPU Floating-Point Error");
+-  intr_register_int (19, 0, INTR_ON, kill,
+-                     "#XF SIMD Floating-Point Exception");
+-
+-  /* Most exceptions can be handled with interrupts turned on.
+-     We need to disable interrupts for page faults because the
+-     fault address is stored in CR2 and needs to be preserved. */
+-  intr_register_int (14, 0, INTR_OFF, page_fault, "#PF Page-Fault Exception");
++exception_init(void) {
++    /* These exceptions can be raised explicitly by a user program,
++       e.g. via the INT, INT3, INTO, and BOUND instructions.  Thus,
++       we set DPL==3, meaning that user programs are allowed to
++       invoke them via these instructions. */
++    intr_register_int(3, 3, INTR_ON, kill, "#BP Breakpoint Exception");
++    intr_register_int(4, 3, INTR_ON, kill, "#OF Overflow Exception");
++    intr_register_int(5, 3, INTR_ON, kill,
++                      "#BR BOUND Range Exceeded Exception");
++
++    /* These exceptions have DPL==0, preventing user processes from
++       invoking them via the INT instruction.  They can still be
++       caused indirectly, e.g. #DE can be caused by dividing by
++       0.  */
++    intr_register_int(0, 0, INTR_ON, kill, "#DE Divide Error");
++    intr_register_int(1, 0, INTR_ON, kill, "#DB Debug Exception");
++    intr_register_int(6, 0, INTR_ON, kill, "#UD Invalid Opcode Exception");
++    intr_register_int(7, 0, INTR_ON, kill,
++                      "#NM Device Not Available Exception");
++    intr_register_int(11, 0, INTR_ON, kill, "#NP Segment Not Present");
++    intr_register_int(12, 0, INTR_ON, kill, "#SS Stack Fault Exception");
++    intr_register_int(13, 0, INTR_ON, kill, "#GP General Protection Exception");
++    intr_register_int(16, 0, INTR_ON, kill, "#MF x87 FPU Floating-Point Error");
++    intr_register_int(19, 0, INTR_ON, kill,
++                      "#XF SIMD Floating-Point Exception");
++
++    /* Most exceptions can be handled with interrupts turned on.
++       We need to disable interrupts for page faults because the
++       fault address is stored in CR2 and needs to be preserved. */
++    intr_register_int(14, 0, INTR_OFF, page_fault, "#PF Page-Fault Exception");
+ }
+ 
+ /* Prints exception statistics. */
+ void
+-exception_print_stats (void) 
+-{
+-  printf ("Exception: %lld page faults\n", page_fault_cnt);
++exception_print_stats(void) {
++    printf("Exception: %lld page faults\n", page_fault_cnt);
+ }
+ 
+ /* Handler for an exception (probably) caused by a user process. */
+ static void
+-kill (struct intr_frame *f) 
+-{
+-  /* This interrupt is one (probably) caused by a user process.
+-     For example, the process might have tried to access unmapped
+-     virtual memory (a page fault).  For now, we simply kill the
+-     user process.  Later, we'll want to handle page faults in
+-     the kernel.  Real Unix-like operating systems pass most
+-     exceptions back to the process via signals, but we don't
+-     implement them. */
+-     
+-  /* The interrupt frame's code segment value tells us where the
+-     exception originated. */
+-  switch (f->cs)
+-    {
+-    case SEL_UCSEG:
+-      /* User's code segment, so it's a user exception, as we
+-         expected.  Kill the user process.  */
+-      printf ("%s: dying due to interrupt %#04x (%s).\n",
+-              thread_name (), f->vec_no, intr_name (f->vec_no));
+-      intr_dump_frame (f);
+-      thread_exit (); 
+-
+-    case SEL_KCSEG:
+-      /* Kernel's code segment, which indicates a kernel bug.
+-         Kernel code shouldn't throw exceptions.  (Page faults
+-         may cause kernel exceptions--but they shouldn't arrive
+-         here.)  Panic the kernel to make the point.  */
+-      intr_dump_frame (f);
+-      PANIC ("Kernel bug - unexpected interrupt in kernel"); 
+-
+-    default:
+-      /* Some other code segment?  Shouldn't happen.  Panic the
+-         kernel. */
+-      printf ("Interrupt %#04x (%s) in unknown segment %04x\n",
+-             f->vec_no, intr_name (f->vec_no), f->cs);
+-      thread_exit ();
++kill(struct intr_frame *f) {
++    /* This interrupt is one (probably) caused by a user process.
++       For example, the process might have tried to access unmapped
++       virtual memory (a page fault).  For now, we simply kill the
++       user process.  Later, we'll want to handle page faults in
++       the kernel.  Real Unix-like operating systems pass most
++       exceptions back to the process via signals, but we don't
++       implement them. */
++
++    /* The interrupt frame's code segment value tells us where the
++       exception originated. */
++    switch (f->cs) {
++        case SEL_UCSEG:
++            /* User's code segment, so it's a user exception, as we
++               expected.  Kill the user process.  */
++            printf("%s: dying due to interrupt %#04x (%s).\n",
++                   thread_name(), f->vec_no, intr_name(f->vec_no));
++            intr_dump_frame(f);
++            thread_exit(-1);
++
++        case SEL_KCSEG:
++            /* Kernel's code segment, which indicates a kernel bug.
++               Kernel code shouldn't throw exceptions.  (Page faults
++               may cause kernel exceptions--but they shouldn't arrive
++               here.)  Panic the kernel to make the point.  */
++            intr_dump_frame(f);
++            PANIC("Kernel bug - unexpected interrupt in kernel");
++
++        default:
++            /* Some other code segment?  Shouldn't happen.  Panic the
++               kernel. */
++            printf("Interrupt %#04x (%s) in unknown segment %04x\n",
++                   f->vec_no, intr_name(f->vec_no), f->cs);
++            thread_exit(-1);
+     }
+ }
+ 
+@@ -120,42 +118,48 @@
+    description of "Interrupt 14--Page Fault Exception (#PF)" in
+    [IA32-v3a] section 5.15 "Exception and Interrupt Reference". */
+ static void
+-page_fault (struct intr_frame *f) 
+-{
+-  bool not_present;  /* True: not-present page, false: writing r/o page. */
+-  bool write;        /* True: access was write, false: access was read. */
+-  bool user;         /* True: access by user, false: access by kernel. */
+-  void *fault_addr;  /* Fault address. */
+-
+-  /* Obtain faulting address, the virtual address that was
+-     accessed to cause the fault.  It may point to code or to
+-     data.  It is not necessarily the address of the instruction
+-     that caused the fault (that's f->eip).
+-     See [IA32-v2a] "MOV--Move to/from Control Registers" and
+-     [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
+-     (#PF)". */
+-  asm ("movl %%cr2, %0" : "=r" (fault_addr));
+-
+-  /* Turn interrupts back on (they were only off so that we could
+-     be assured of reading CR2 before it changed). */
+-  intr_enable ();
+-
+-  /* Count page faults. */
+-  page_fault_cnt++;
+-
+-  /* Determine cause. */
+-  not_present = (f->error_code & PF_P) == 0;
+-  write = (f->error_code & PF_W) != 0;
+-  user = (f->error_code & PF_U) != 0;
+-
+-  /* To implement virtual memory, delete the rest of the function
+-     body, and replace it with code that brings in the page to
+-     which fault_addr refers. */
+-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+-          fault_addr,
+-          not_present ? "not present" : "rights violation",
+-          write ? "writing" : "reading",
+-          user ? "user" : "kernel");
+-  kill (f);
++page_fault(struct intr_frame *f) {
++    bool not_present;  /* True: not-present page, false: writing r/o page. */
++    bool write;        /* True: access was write, false: access was read. */
++    bool user;         /* True: access by user, false: access by kernel. */
++    void *fault_addr;  /* Fault address. */
++
++    /* Obtain faulting address, the virtual address that was
++       accessed to cause the fault.  It may point to code or to
++       data.  It is not necessarily the address of the instruction
++       that caused the fault (that's f->eip).
++       See [IA32-v2a] "MOV--Move to/from Control Registers" and
++       [IA32-v3a] 5.15 "Interrupt 14--Page Fault Exception
++       (#PF)". */
++    asm ("movl %%cr2, %0" : "=r" (fault_addr));
++
++    /* Turn interrupts back on (they were only off so that we could
++       be assured of reading CR2 before it changed). */
++    intr_enable();
++
++    /* Count page faults. */
++    page_fault_cnt++;
++
++    /* Determine cause. */
++    not_present = (f->error_code & PF_P) == 0;
++    write = (f->error_code & PF_W) != 0;
++    user = (f->error_code & PF_U) != 0;
++
++    //TODO: NULL, below phys base, page exists
++    if (is_kernel_vaddr(fault_addr) || pagedir_get_page(thread_current()->pagedir , fault_addr) || fault_addr == NULL) {
++        f->eax = -1;
++        //TODO: fix this?
++        exit(-1);
++    }
++
++    /* To implement virtual memory, delete the rest of the function
++       body, and replace it with code that brings in the page to
++       which fault_addr refers. */
++    printf("Page fault at %p: %s error %s page in %s context.\n",
++           fault_addr,
++           not_present ? "not present" : "rights violation",
++           write ? "writing" : "reading",
++           user ? "user" : "kernel");
++    kill(f);
+ }
+ 
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/userprog/process.c ../project2/userprog/process.c
+--- OSF16project2/userprog/process.c	2016-10-04 21:29:32.059238061 -0500
++++ ../project2/userprog/process.c	2016-10-04 21:21:09.893411884 -0500
+@@ -18,6 +18,10 @@
+ #include "threads/thread.h"
+ #include "threads/vaddr.h"
+ 
++#define MAX_CMD_ARGS 30
++#define MAX_CMD_LEN 200
++
++
+ static thread_func start_process NO_RETURN;
+ static bool load (const char *cmdline, void (**eip) (void), void **esp);
+ 
+@@ -40,8 +44,18 @@
+ 
+   /* Create a new thread to execute FILE_NAME. */
+   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
++  // first check if the file exists before we execute
++  struct thread* parent = thread_current();
++  struct thread* child = getChild(tid, parent);
++  // printf("Parent: %s, tid: %d\n", parent->name, parent->tid);
++  // printf("Child: %s, tid: %d\n", child->name, child->tid);
++  sema_down(&parent->child_loaded);
++  if (!parent->child_load_status) {
++      return -1;
++  }
++  // printf("loaded\n", child->name);
+   if (tid == TID_ERROR)
+-    palloc_free_page (fn_copy); 
++    palloc_free_page (fn_copy);
+   return tid;
+ }
+ 
+@@ -60,11 +74,20 @@
+   if_.cs = SEL_UCSEG;
+   if_.eflags = FLAG_IF | FLAG_MBS;
+   success = load (file_name, &if_.eip, &if_.esp);
++  
++  struct thread* parent = findThread(thread_current()->parent_tid);
++  parent->child_load_status = success;
++  sema_up(&parent->child_loaded);
++
++  // return control back to the parent
++  // sema_down(&parent->parent_ready);
+ 
+   /* If load failed, quit. */
+   palloc_free_page (file_name);
+-  if (!success) 
+-    thread_exit ();
++  if (!success) {
++    thread_exit (-1);
++  }
++  // printf("starting process %s\n", thread_current()->name);
+ 
+   /* Start the user process by simulating a return from an
+      interrupt, implemented by intr_exit (in
+@@ -86,21 +109,70 @@
+    This function will be implemented in problem 2-2.  For now, it
+    does nothing. */
+ int
+-process_wait (tid_t child_tid UNUSED) 
++process_wait (tid_t child_tid) 
+ {
+-  return -1;
++  struct thread *current_th = thread_current();
++  // printf("%s with tid %d is waiting for %d...\n", current_th->name, current_th->tid, child_tid);
++  // check if wait was called twice on the current thread
++  if(current_th->wait == 1 && current_th->wait_tid == child_tid){
++    // printf("wait called already for the tid\n");
++    return -1;
++  }
++  current_th->wait = 1;
++  current_th->wait_tid = child_tid;
++
++  struct exit_elem *ee = getEE(child_tid, current_th);
++  if (ee && ee->set_flag == 1 && ee->tid == child_tid) {
++    return ee->exit_code;
++  }
++
++  if (!findThread(child_tid)) {
++    // printf("child not found\n");
++    return -1;
++  }
++
++  struct thread *child_a = getChild(child_tid, current_th);
++
++  
++  if(child_a == NULL){
++    // printf("child is not a child\n");
++    return -1;
++  }
++  else{
++     if(child_a->status != THREAD_DYING){
++       // printf("now waiting...\n");
++       // sema_up(&current_th->parent_ready);
++       sema_down(&child_a->done);
++    }
++    struct exit_elem *ee = getEE(child_tid, current_th);
++    if(ee->set_flag != 0){
++      return ee->exit_code;
++    }
++    return -1;
++  }
+ }
+ 
+ /* Free the current process's resources. */
+ void
+-process_exit (void)
++process_exit (int status)
+ {
+   struct thread *cur = thread_current ();
+   uint32_t *pd;
+ 
++  struct thread* parent = findThread(cur->parent_tid);
++  // struct thread *child = getChild(cur->tid, parent);
++  struct exit_elem *ee = getEE(cur->tid, parent);
++  ee->exit_code = status;
++  ee->set_flag = 1;
++  //this child is going to be dying because it is in process exit
++  //child->status = THREAD_DYING;
++  char* ptr_tok;
++  char* command = strtok_r(cur->name, " ", &ptr_tok);
++  printf("%s: exit(%d)\n", command, status);
+   /* Destroy the current process's page directory and switch back
+      to the kernel-only page directory. */
+   pd = cur->pagedir;
++  file_close(cur->rox_executable);
+   if (pd != NULL) 
+     {
+       /* Correct ordering here is crucial.  We must set
+@@ -114,6 +186,8 @@
+       pagedir_activate (NULL);
+       pagedir_destroy (pd);
+     }
++  sema_up(&cur->done);
++  // sema_up(&parent->parent_ready);
+ }
+ 
+ /* Sets up the CPU for running user code in the current
+@@ -195,7 +269,7 @@
+ #define PF_W 2          /* Writable. */
+ #define PF_R 4          /* Readable. */
+ 
+-static bool setup_stack (void **esp);
++static bool setup_stack (void **esp, char* file_name);
+ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
+ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
+                           uint32_t read_bytes, uint32_t zero_bytes,
+@@ -215,17 +289,27 @@
+   bool success = false;
+   int i;
+ 
++  ///////////////////////////////////////////////////////////////////////////
++  //GETTING THE ARGUMENTS OF COMMAND
++  char fn_copy[MAX_CMD_LEN];
++  strlcpy(fn_copy, file_name, MAX_CMD_LEN);
++  //char *argv[MAX_CMD_ARGS];
++  char* command;
++  char *ptr_tok;
++  command = strtok_r(fn_copy, " ", &ptr_tok);
++  //////////////////////////////////////////////////////////////////////////
++
+   /* Allocate and activate page directory. */
+   t->pagedir = pagedir_create ();
+   if (t->pagedir == NULL) 
+     goto done;
+   process_activate ();
+ 
+-  /* Open executable file. */
+-  file = filesys_open (file_name);
++  /* Open executable file. */  
++  file = filesys_open (command);
+   if (file == NULL) 
+     {
+-      printf ("load: %s: open failed\n", file_name);
++      printf ("load: %s: open failed\n", command);
+       goto done; 
+     }
+ 
+@@ -302,7 +386,7 @@
+     }
+ 
+   /* Set up stack. */
+-  if (!setup_stack (esp))
++  if (!setup_stack (esp, file_name))
+     goto done;
+ 
+   /* Start address. */
+@@ -311,8 +395,16 @@
+   success = true;
+ 
+  done:
+-  /* We arrive here whether the load is successful or not. */
+-  file_close (file);
++ 
++  if(!success){
++    file_close (file);
++  }
++  else{
++     struct thread *t = thread_current();
++     t->rox_executable = file;
++     file_deny_write(t->rox_executable);
++  
++  }
+   return success;
+ }
+ 
+@@ -427,20 +519,67 @@
+ /* Create a minimal stack by mapping a zeroed page at the top of
+    user virtual memory. */
+ static bool
+-setup_stack (void **esp) 
++setup_stack (void **esp, char *file_name)
+ {
+   uint8_t *kpage;
+   bool success = false;
+ 
+   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+-  if (kpage != NULL) 
+-    {
+-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+-      if (success)
+-        *esp = PHYS_BASE;
+-      else
+-        palloc_free_page (kpage);
++  if (kpage != NULL)
++  {
++    success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
++    if (success) {
++      // first parse the arguments in to argc and argv
++      char fn_copy[MAX_CMD_LEN];
++      strlcpy(fn_copy, file_name, MAX_CMD_LEN);
++      char *argv[MAX_CMD_ARGS];
++      int argc;             // keeps track of the total number of arguments (including the command itself)
++      //put args in argv
++      char *ptr_tok;
++      argv[0] = strtok_r(fn_copy, " ", &ptr_tok);
++      // printf("%s\n", argv[0]);
++      char* tok;
++      argc = 1;
++      // put all arguments in argv
++      while ((tok = strtok_r(NULL, " ", &ptr_tok)) != NULL) {
++        // printf("hi\n");
++        argv[argc] = tok;
++        argc += 1;
++      }
++
++      *esp = PHYS_BASE;
++      // need to setup the args in stack
++      int index = argc - 1;
++      uint32_t * argument_array[argc];
++      while (index >= 0) {
++        *esp = *esp - (strlen(argv[index]) + 1)*sizeof(char);
++        argument_array[index] = (uint32_t *)*esp;                    //points to starting location of argument
++        memcpy(*esp, argv[index], strlen(argv[index]) + 1);   //copying arg into stack (esp)
++        index -= 1;
++      }
++
++      // place our parsed arguments on the stack
++      *esp -= 4;
++      *(int*)(*esp) = 0;
++      index = argc - 1;
++      while (index >= 0) {  // insert agv
++        *esp -= 4;
++        (*(uint32_t **)(*esp)) = argument_array[index];     //putting starting location onto stack
++        index -=1;
++      }
++      *esp -= 4;
++      (*(uintptr_t  **)(*esp)) = (*esp + 4);
++      *esp -= 4;
++      *(int *)(*esp) = argc;                                                            // insert argc
++      *esp -= 4;
++      *(int *)(*esp) = 0;
++    }
++
++    else {
++      palloc_free_page (kpage);
+     }
++
++  }
+   return success;
+ }
+ 
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/userprog/process.h ../project2/userprog/process.h
+--- OSF16project2/userprog/process.h	2016-10-04 21:29:32.059238061 -0500
++++ ../project2/userprog/process.h	2016-09-27 17:58:00.681070933 -0500
+@@ -3,9 +3,12 @@
+ 
+ #include "threads/thread.h"
+ 
++#define max_cmd_args 30
++#define max_cmd_len 100
++
+ tid_t process_execute (const char *file_name);
+ int process_wait (tid_t);
+-void process_exit (void);
++void process_exit (int status);
+ void process_activate (void);
+ 
+ #endif /* userprog/process.h */
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/userprog/syscall.c ../project2/userprog/syscall.c
+--- OSF16project2/userprog/syscall.c	2016-10-04 21:29:32.059238061 -0500
++++ ../project2/userprog/syscall.c	2016-10-04 20:46:36.545713883 -0500
+@@ -4,17 +4,406 @@
+ #include "threads/interrupt.h"
+ #include "threads/thread.h"
+ 
+-static void syscall_handler (struct intr_frame *);
++typedef int pid_t;
+ 
+-void
+-syscall_init (void) 
++static void syscall_handler(struct intr_frame *);
++void check_bad_ptr(void* arg_ptr);
++
++get_user (const uint8_t *uaddr)
+ {
+-  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
++  int result;
++  asm ("movl $1f, %0; movzbl %1, %0; 1:"
++       : "=&a" (result) : "m" (*uaddr));
++  return result;
++}
++ 
++
++void
++syscall_init(void) {
++    intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
+ }
+ 
+ static void
+-syscall_handler (struct intr_frame *f UNUSED) 
+-{
+-  printf ("system call!\n");
+-  thread_exit ();
++syscall_handler(struct intr_frame *f) {
++    // printf("stack pointer of thread is %d\n", thread_current()->stack);
++    // printf("intr_frame stack pointer is %d\n", f->esp);
++    // first check if sp and the first arg are valid
++    check_bad_ptr(f->esp);
++    check_bad_ptr(f->esp + 4);
++    // if (!is_user_vaddr(f->esp) || !is_user_vaddr(f->esp + 4)) {
++    //     exit(-1);
++    // }
++    // if (!pagedir_get_page(thread_current()->pagedir, f->esp) || !pagedir_get_page(thread_current()->pagedir, f->esp + 4)) {
++    //     exit(-1);
++    // }
++    // int x =0;
++    int syscall_number = *((int *) f->esp);
++    // printf("%s in syscall handler witch call %d\n", thread_current()->name, syscall_number);
++    switch (syscall_number) {
++        case SYS_HALT: {
++            halt();
++            break;
++        }
++        case SYS_EXIT: {
++            int status = *(int *) (f->esp + 4);
++            exit(status);
++            break;
++        }
++        case SYS_EXEC: {
++            // printf("%s in exec\n", thread_current()->name);
++            //TODO: maybe check if command string is larger than a pagesize
++            //TODO: check non empty string and dont start with space?
++            check_bad_ptr(*(void**)(f->esp + 4));
++            char* cmd_line = *(char **) (f->esp + 4);
++            // void *vp = *(void **) (f->esp + 4);
++            // void *ptr = pagedir_get_page(thread_current()->pagedir, vp);
++            // if (!ptr){
++            //  // printf("asdfasdf\n\n\n\n\n");
++            //   exit(-1);
++            //   //f->eax = -1;
++            //   break;
++            // }
++            f->eax = exec(cmd_line);
++            break;
++        }
++        case SYS_WAIT: {
++            pid_t pid = *(int *) (f->esp + 4);
++            f->eax = wait(pid);
++            break;
++        }
++        case SYS_CREATE: {
++            check_bad_ptr(*(void**)(f->esp + 4));
++            char *file = *(char **) (f->esp + 4);
++            // void *vp = *(void **) (f->esp + 4);
++            // void *ptr = pagedir_get_page(thread_current()->pagedir, vp);
++            // if (!ptr){
++            //  // printf("asdfasdf\n\n\n\n\n");
++            //   exit(-1);
++            //   //f->eax = -1;
++            //   break;
++            // }
++            unsigned initial_size = *(unsigned *) (f->esp + 8);
++            f->eax = create(file, initial_size);
++            break;
++        }
++        case SYS_REMOVE: {
++            check_bad_ptr(*(void**)(f->esp + 4));
++            char *file = *(char **) (f->esp + 4);
++            f->eax = remove(file);
++            break;
++        }
++        case SYS_OPEN: {
++            check_bad_ptr(*(void**)(f->esp + 4));
++            // void *vp = *(void **) (f->esp + 4);
++            // void *ptr = pagedir_get_page(thread_current()->pagedir, vp);
++            // if (!ptr){
++            //  // printf("asdfasdf\n\n\n\n\n");
++            //   exit(-1);
++            //   //f->eax = -1;
++            //   break;
++            // }
++            char *file = *(char **) (f->esp + 4);
++            f->eax = open(file);
++            break;
++        }
++        case SYS_FILESIZE: {
++            int fd = *(int *) (f->esp + 4);
++            f->eax = filesize(fd);
++            break;
++        }
++        case SYS_READ: {
++            check_bad_ptr(*(void**)(f->esp + 8));
++            int fd = *(int *) (f->esp + 4);
++            void *buffer = *(char **) (f->esp + 8);
++            unsigned size = *(unsigned *) (f->esp + 12);
++            f->eax = read(fd, buffer, size);
++            break;
++        }
++        case SYS_WRITE: {
++            check_bad_ptr(*(void**)(f->esp + 8));
++            int fd = *(int *) (f->esp + 4);
++            void *buffer = *(char **) (f->esp + 8);
++            unsigned size = *(unsigned *) (f->esp + 12);
++            f->eax = write(fd, buffer, size);
++            break;
++
++        }
++        case SYS_SEEK: {
++            int fd = *(int *) (f->esp + 4);
++            unsigned position = *(unsigned *) (f->esp + 8);
++            seek(fd, position);
++            break;
++        }
++        case SYS_TELL: {
++            int fd = *(int *) (f->esp + 4);
++            f->eax = tell(fd);
++            break;
++        }
++        case SYS_CLOSE: {
++            int fd = *(int *) (f->esp + 4);
++            close(fd);
++            break;
++        }
++    }
++}
++
++static struct fd_elem *get_fd_element(int fd) {
++//    struct list *fd_list = &thread_current()->fd_list;
++//    struct list_elem *ptr = list_begin(fd_list);
++//    struct list_elem *end = list_end(fd_list);
++//
++//    struct fd_elem *element = NULL;
++//    while(ptr != end){
++//        element = list_entry(ptr, struct fd_elem, element);
++//        if(element->fd == fd){
++//            break;
++//        }
++//        ptr = list_next(ptr);
++//    }
++//    return element;
++
++    struct list_elem *e;
++    struct fd_elem *element = NULL;
++    struct list *fd_list = &thread_current()->fd_list;
++
++    for (e = list_begin(fd_list); e != list_end(fd_list); e = list_next(e)) {
++        struct fd_elem *tmp = list_entry(e, struct fd_elem, element);
++        if(tmp->fd == fd){
++            element = tmp;
++            break;
++        }
++    }
++    return element;
++}
++
++void halt(void) {
++    /*Terminates Pintos by calling shutdown_power_off() 
++    (declared in "threads/init.h"). This should be seldom used, 
++    because you lose some information about possible deadlock situations, etc. */
++    shutdown_power_off();
++}
++
++void exit(int status) {
++    /*Terminates the current user program, returning status to the kernel. 
++    If the process's parent waits for it (see below), this is the status that 
++    will be returned. Conventionally, a status of 0 indicates success and nonzero values
++    indicate errors. */
++
++    //TODO: store status eventually
++
++    thread_exit(status);
++}
++
++pid_t exec(const char *cmd_line) {
++    /*Runs the executable whose name is given in cmd_line, passing any given arguments, 
++    and returns the new process's program id (pid). Must return pid -1, which otherwise 
++    should not be a valid pid, if the program cannot load or run for any reason. Thus, the 
++    parent process cannot return from the exec until it knows whether the child process 
++    successfully loaded its executable. You must use appropriate synchronization to ensure this.*/
++    return process_execute(cmd_line);
++}
++
++int wait(pid_t pid) {
++/*    Waits for a child process pid and retrieves the child's exit status.
++
++    If pid is still alive, waits until it terminates. Then, returns the status that pid passed 
++    to exit. If pid did not call exit(), but was terminated by the kernel (e.g. killed due to an
++    exception), wait(pid) must return -1. It is perfectly legal for a parent process to wait for
++    child processes that have already terminated by the time the parent calls wait, but the
++    kernel must still allow the parent to retrieve its child's exit status, or learn that the
++    child was terminated by the kernel.
++
++    wait must fail and return -1 immediately if any of the following conditions is true:
++
++        pid does not refer to a direct child of the calling process. pid is a direct child of
++         the calling process if and only if the calling process received pid as a return value 
++         from a successful call to exec.
++
++        Note that children are not inherited: if A spawns child B and B spawns child process C,
++         then A cannot wait for C, even if B is dead. A call to wait(C) by process A must fail. 
++         Similarly, orphaned processes are not assigned to a new parent if their parent process
++         exits before they do.
++
++        The process that calls wait has already called wait on pid. That is, a process may wait
++         for any given child at most once. 
++
++    Processes may spawn any number of children, wait for them in any order, and may even exit
++     without having waited for some or all of their children. Your design should consider all 
++     the ways in which waits can occur. All of a process's resources, including its struct thread,
++      must be freed whether its parent ever waits for it or not, and regardless of whether
++       the child exits before or after its parent.
++
++    You must ensure that Pintos does not terminate until the initial process exits. 
++    The supplied Pintos code tries to do this by calling process_wait() (in "userprog/process.c") 
++    from main() (in "threads/init.c"). We suggest that you implement process_wait() according to
++     the comment at the top of the function and then implement the wait system call in terms of
++      process_wait().
++
++    Implementing this system call requires considerably more work than any of the rest.*/
++
++    return process_wait(pid);
++}
++
++
++bool create(const char *file, unsigned initial_size) {
++    /*  Creates a new file called file initially initial_size bytes in size.
++      Returns true if successful, false otherwise. Creating a new file does
++       not open it: opening the new file is a separate operation which would
++       require a open system call. */
++    return filesys_create(file, initial_size);
++}
++
++bool remove(const char *file) {
++    /*  Deletes the file called file. Returns true if successful, false otherwise.
++      A file may be removed regardless of whether it is open or closed, and removing
++       an open file does not close it. See Removing an Open File, for details.*/
++    return filesys_remove(file);
++}
++
++int open(const char *file) {
++    /*  Opens the file called file. Returns a nonnegative integer handle called a "file descriptor"
++      fd), or -1 if the file could not be opened.
++
++      File descriptors numbered 0 and 1 are reserved for the console: fd 0 (STDIN_FILENO) is
++      standard input, fd 1 (STDOUT_FILENO) is standard output. The open system call will
++      never return either of these file descriptors, which are valid as system call arguments
++       only as explicitly described below.
++
++      Each process has an independent set of file descriptors. File descriptors are not inherited
++      by child processes.
++
++      When a single file is opened more than once, whether by a single process or different
++      processes, each open returns a new file descriptor. Different file descriptors for
++       a single file are closed independently in separate calls to close and they do not
++       share a file position.*/
++//    struct file *openfile = filesys_open(file);
++//    if (openfile == NULL) {
++//        return -1;
++//    }
++//    struct fd_elem *fd_elem = malloc(sizeof(struct fd_elem));
++//
++//    unsigned updated_fd = thread_current()->next_file;
++//    thread_current()->next_file = updated_fd;
++//    fd_elem->fd = updated_fd;
++//    fd_elem->file = openfile;
++//    list_push_back(&thread_current()->fd_list, &fd_elem->element);
++//    return updated_fd;
++
++    struct fd_elem *fe = (struct fd_elem*) malloc(sizeof(struct fd_elem));
++    struct file *f = filesys_open(file);
++    if(f == NULL){
++        return -1;
++    }
++    fe->fd = thread_current()->next_file;
++    thread_current()->next_file = thread_current()->next_file + 1;
++    list_push_back(&thread_current()->fd_list, &fe->element);
++    return fe->fd;
++}
++
++int filesize(int fd) {
++    /* Returns the size, in bytes, of the file open as fd. */
++    struct fd_elem *fd_elem = get_fd_element(fd);
++    if (fd_elem == NULL) {
++        return -1;
++    } else {
++        return file_length(fd_elem->file);
++    }
++}
++
++int read(int fd, void *buffer, unsigned size) {
++    /*   Reads size bytes from the file open as fd into buffer. Returns the number of
++       bytes actually read (0 at end of file), or -1 if the file could not be read
++       (due to a condition other than end of file). Fd 0 reads from the keyboard
++        using input_getc(). */
++    struct fd_elem *fd_elem = get_fd_element(fd);
++    if (fd_elem == NULL) {
++        // printf("here\n");
++        return -1;
++    } else {
++       // file_deny_write(fd_elem->file);
++        return file_read(fd_elem->file, buffer, size);
++    }
++}
++
++int write(int fd, const void *buffer, unsigned size) {
++    /*   Writes size bytes from buffer to the open file fd. Returns the number of
++       bytes actually written, which may be less than size if some bytes could not be written.
++
++       Writing past end-of-file would normally extend the file, but file growth
++       is not implemented by the basic file system. The expected behavior is to
++        write as many bytes as possible up to end-of-file and return the actual
++         number written, or 0 if no bytes could be written at all.
++
++       Fd 1 writes to the console. Your code to write to the console should write
++       all of buffer in one call to putbuf(), at least as long as size is not bigger
++       than a few hundred bytes. (It is reasonable to break up larger buffers.)
++       Otherwise, lines of text output by different processes may end up interleaved
++       on the console, confusing both human readers and our grading scripts.*/
++
++    if (fd == 0) {
++        return -1;
++    } else if (fd == 1) {
++        char *b = (char *) buffer;
++        //printf("%d \n", size);
++        putbuf(b, size);
++        return (int) size;
++    } else if(get_fd_element(fd) != NULL){
++        return file_write(get_fd_element(fd)->file, buffer, size);
++    }
++
++    return -1;
++}
++
++void seek(int fd, unsigned position) {
++    /*  Changes the next byte to be read or written in open file fd to position,
++      expressed in bytes from the beginning of the file. (Thus, a position of 0
++      is the file's start.)
++
++      A seek past the current end of a file is not an error. A later read obtains
++      0 bytes, indicating end of file. A later write extends the file, filling any
++     unwritten gap with zeros. (However, in Pintos files have a fixed length until
++     project 4 is complete, so writes past end of file will return an error.)
++     These semantics are implemented in the file system and do not require any
++     special effort in system call implementation.*/
++    struct fd_elem *fd_elem = get_fd_element(fd);
++    if (fd_elem == NULL) {
++        return -1;
++    } else {
++        file_seek(fd_elem->file, position);
++    }
++}
++
++int tell(int fd) {
++    /*  Returns the position of the next byte to be read or written in open file fd,
++       expressed in bytes from the beginning of the file. */
++    struct fd_elem *fd_elem = get_fd_element(fd);
++    if (fd_elem == NULL) {
++        return -1;
++    } else {
++        file_tell(fd_elem->file);
++    }
++    return -1;
++}
++
++void close(int fd) {
++    /* Closes file descriptor fd. Exiting or terminating a process implicitly closes
++     all its open file descriptors, as if by calling this function for each one. */
++     
++}
++
++void check_bad_ptr(void* arg_ptr) {
++    // printf("checking address %x\n", (unsigned char*)arg_ptr);
++    if (!arg_ptr) {
++        exit(-1);
++        // printf("arg ptr is just null\n");
++        return;
++    }
++    if (!is_user_vaddr(arg_ptr)) {
++        // printf("invalid is_user_vaddr\n");
++        exit(-1);
++    }
++    if (!pagedir_get_page(thread_current()->pagedir, arg_ptr)) {
++        // printf("%s: not valid page\n", thread_current()->name);
++        exit(-1);
++    }
+ }
+diff -aur -x '*~' -x examples -X exclude.files OSF16project2/userprog/syscall.h ../project2/userprog/syscall.h
+--- OSF16project2/userprog/syscall.h	2016-10-04 21:29:32.059238061 -0500
++++ ../project2/userprog/syscall.h	2016-09-27 19:40:34.014931952 -0500
+@@ -1,6 +1,11 @@
+ #ifndef USERPROG_SYSCALL_H
+ #define USERPROG_SYSCALL_H
+ 
++#include <stdbool.h>
++
+ void syscall_init (void);
+ 
++bool create(const char *file, unsigned initial_size);
++bool remove(const char *file);
++
+ #endif /* userprog/syscall.h */
+Only in ../project2/utils: setitimer-helper
+Only in ../project2/utils: squish-pty
+Only in ../project2/utils: squish-unix
